@@ -1,0 +1,41 @@
+{
+  "name": "image-sections",
+  "version": "1.0.0",
+  "displayName": "Image Sections",
+  "description": "Herbruikbare afbeeldingssecties voor projectkaarten en galerijen. Gebruik {{plugin:image-section collection=\"slug\"}} in pagina-inhoud.",
+  "author": "De Haas Digital",
+  "capabilities": ["ui.inject", "content.transform", "storage.read", "storage.write"],
+  "adminPage": {
+    "path": "/plugins/image-sections",
+    "title": "Image Sections",
+    "icon": "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z",
+    "showInNavigation": true,
+    "requiresAdmin": true
+  },
+  "adminUi": {
+    "entry": "admin/index.html"
+  },
+  "ownedResources": {
+    "storagePrefixes": [
+      "uploads/plugins/image-sections",
+      "plugins/image-sections"
+    ],
+    "configKeys": [],
+    "routeNamespaces": [
+      "/plugins/image-sections",
+      "/api/plugins/image-sections"
+    ],
+    "cacheNamespaces": [
+      "plugin:image-sections"
+    ],
+    "dataScopes": [
+      "collections",
+      "items"
+    ]
+  },
+  "entry": {
+    "server": "server.js"
+  },
+  "assets": "public",
+  "configSchema": {}
+}

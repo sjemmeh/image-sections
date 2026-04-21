@@ -1,0 +1,250 @@
+/* ============================================================
+   Image Sections Plugin – Public Styles
+   ============================================================ */
+
+/* ----- Shared ----- */
+
+.is-section {
+  --is-columns: 3;
+  width: 100%;
+}
+
+.is-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--is-columns), 1fr);
+  gap: 1.5rem;
+  justify-content: center;
+}
+
+@media (max-width: 1024px) {
+  .is-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .is-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ----- Cards Layout ----- */
+
+.is-layout-cards .is-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.is-layout-cards .is-card-image {
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.is-layout-cards .is-card-image img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.is-layout-cards .is-card:hover .is-card-image img {
+  transform: scale(1.03);
+}
+
+.is-layout-cards .is-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+}
+
+.is-layout-cards .is-card-title {
+  font-weight: 700;
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.is-layout-cards .is-card-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: inherit;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+}
+
+.is-layout-cards .is-card-btn:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.is-layout-cards.is-has-lightbox .is-card {
+  cursor: pointer;
+}
+
+/* ----- Title position (above/below) ----- */
+
+/* Cards: flip card direction so footer appears above the image */
+.is-title-above.is-layout-cards .is-card {
+  flex-direction: column-reverse;
+}
+
+/* Grid: flip grid-item direction so caption appears above the image */
+.is-title-above.is-layout-grid .is-grid-item {
+  flex-direction: column-reverse;
+}
+
+/* Grid layout captions */
+.is-grid-item {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Grid items with captions must not clip the caption */
+.is-layout-grid .is-grid-item:has(.is-grid-caption) {
+  overflow: visible;
+}
+
+.is-grid-caption {
+  display: block;
+  padding: 0.4rem 0.1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ----- Title alignment (left/center/right) ----- */
+/* Override the default space-between on the footer and align the title text */
+
+.is-title-left.is-layout-cards .is-card-footer {
+  justify-content: flex-start !important;
+}
+.is-title-left.is-layout-cards .is-card-title,
+.is-title-left.is-layout-grid .is-grid-caption {
+  text-align: left;
+}
+
+.is-title-center.is-layout-cards .is-card-footer {
+  justify-content: center !important;
+}
+.is-title-center.is-layout-cards .is-card-title,
+.is-title-center.is-layout-grid .is-grid-caption {
+  text-align: center;
+}
+
+.is-title-right.is-layout-cards .is-card-footer {
+  justify-content: flex-end !important;
+}
+.is-title-right.is-layout-cards .is-card-title,
+.is-title-right.is-layout-grid .is-grid-caption {
+  text-align: right;
+}
+
+/* ----- Grid Layout ----- */
+
+.is-layout-grid .is-grid-item {
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.is-layout-grid .is-grid-item img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.is-layout-grid .is-grid-item:hover img {
+  transform: scale(1.03);
+}
+
+.is-layout-grid.is-has-lightbox .is-grid-item {
+  cursor: pointer;
+}
+
+/* ----- Lightbox ----- */
+
+.is-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  cursor: pointer;
+}
+
+.is-lightbox-overlay.is-active {
+  opacity: 1;
+}
+
+.is-lightbox-overlay img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  cursor: default;
+}
+
+.is-lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.is-lightbox-close:hover {
+  opacity: 1;
+}
+
+.is-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 2.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+  user-select: none;
+}
+
+.is-lightbox-nav:hover {
+  opacity: 1;
+}
+
+.is-lightbox-prev {
+  left: 0.5rem;
+}
+
+.is-lightbox-next {
+  right: 0.5rem;
+}

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Sections Admin</title>
+  </head>
+  <body>
+    <div class="is-plugin-admin w-full space-y-4">
+
+      <!-- Collections list -->
+      <section class="bg-card border border-border rounded-xl p-6 shadow-sm" id="collections-card">
+        <div class="space-y-1">
+          <h2 class="text-2xl font-semibold">Collecties</h2>
+          <p class="text-muted-foreground">Maak afbeeldingscollecties aan en gebruik ze in pagina&#8209;inhoud via <code class="text-xs bg-muted px-1.5 py-0.5 rounded">{{plugin:image-section collection="slug"}}</code></p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 mt-4">
+          <input id="new-col-name" class="bg-background border border-border rounded-md px-3 py-2 text-foreground" type="text" placeholder="Naam (bijv. Projecten)" />
+          <input id="new-col-slug" class="bg-background border border-border rounded-md px-3 py-2 text-foreground" type="text" placeholder="Slug (bijv. projecten)" />
+          <select id="new-col-layout" class="bg-background border border-border rounded-md px-3 py-2 text-foreground">
+            <option value="cards">Kaarten (met titel + knop)</option>
+            <option value="grid">Galerij grid</option>
+          </select>
+          <button id="create-col-btn" data-btn="primary">Collectie aanmaken</button>
+        </div>
+
+        <div id="collections-list" class="mt-4 border border-border rounded-xl overflow-hidden divide-y divide-border"></div>
+      </section>
+
+      <!-- Collection editor -->
+      <section class="bg-card border border-border rounded-xl p-6 shadow-sm hidden" id="editor-card">
+        <div class="space-y-1">
+          <h2 id="editor-title" class="text-2xl font-semibold">Collectie bewerken</h2>
+          <p class="text-muted-foreground" id="editor-shortcode"></p>
+          <div class="flex flex-wrap items-center gap-2 mt-2">
+            <button id="back-btn" data-btn="secondary">Terug naar collecties</button>
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="grid grid-cols-1 gap-3 mt-4">
+          <article class="bg-card border border-border rounded-xl p-6 shadow-sm">
+            <h3 class="text-xl font-semibold">Instellingen</h3>
+            <div class="flex flex-wrap items-center gap-3 mt-3">
+              <div class="flex flex-col gap-1">
+                <label class="text-sm text-muted-foreground">Naam</label>
+                <input id="edit-name" class="bg-background border border-border rounded-md px-3 py-2 text-foreground" type="text" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-sm text-muted-foreground">Layout</label>
+                <select id="edit-layout" class="bg-background border border-border rounded-md px-3 py-2 text-foreground">
+                  <option value="cards">Kaarten</option>
+                  <option value="grid">Galerij grid</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-sm text-muted-foreground">Kolommen</label>
+                <select id="edit-columns" class="bg-background border border-border rounded-md px-3 py-2 text-foreground">
+                  <option value="2">2</option>
+                  <option value="3" selected>3</option>
+                  <option value="4">4</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-1" id="lightbox-group">
+                <label class="text-sm text-muted-foreground">Lightbox</label>
+                <label class="flex items-center gap-2 h-[42px]">
+                  <input id="edit-lightbox" type="checkbox" class="w-4 h-4" />
+                  <span class="text-sm">Inschakelen</span>
+                </label>
+              </div>
+              <div class="flex flex-col gap-1" id="title-position-group">
+                <label class="text-sm text-muted-foreground">Titelpositie</label>
+                <select id="edit-title-position" class="bg-background border border-border rounded-md px-3 py-2 text-foreground">
+                  <option value="below">Onder afbeelding</option>
+                  <option value="above">Boven afbeelding</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-1" id="title-align-group">
+                <label class="text-sm text-muted-foreground">Uitlijning titel</label>
+                <select id="edit-title-align" class="bg-background border border-border rounded-md px-3 py-2 text-foreground">
+                  <option value="left">Links</option>
+                  <option value="center">Midden</option>
+                  <option value="right">Rechts</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-1" id="show-title-group">
+                <label class="text-sm text-muted-foreground">Titel tonen</label>
+                <label class="flex items-center gap-2 h-[42px]">
+                  <input id="edit-show-title" type="checkbox" class="w-4 h-4" />
+                  <span class="text-sm">Toon bestandsnaam/titel</span>
+                </label>
+              </div>
+              <div class="flex flex-col gap-1" id="btn-text-group">
+                <label class="text-sm text-muted-foreground">Knoptekst</label>
+                <input id="edit-btn-text" class="bg-background border border-border rounded-md px-3 py-2 text-foreground" type="text" placeholder="Bekijk project" />
+              </div>
+            </div>
+            <div class="flex justify-end mt-3">
+              <button id="save-settings-btn" data-btn="primary">Instellingen opslaan</button>
+            </div>
+          </article>
+
+          <!-- Items -->
+          <article class="bg-card border border-border rounded-xl p-6 shadow-sm">
+            <h3 class="text-xl font-semibold">Afbeeldingen</h3>
+            <div class="flex flex-col gap-2 mt-3">
+              <div
+                id="item-dropzone"
+                class="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-white/40 hover:bg-white/5 transition-colors"
+              >
+                <p class="text-sm text-muted-foreground">
+                  Sleep afbeeldingen hierheen of <span class="underline">klik om te kiezen</span>
+                </p>
+                <p class="text-xs text-muted-foreground mt-1">Meerdere bestanden tegelijk toegestaan</p>
+                <input id="item-file" class="hidden" type="file" accept="image/*" multiple />
+              </div>
+              <div id="item-file-preview" class="text-xs text-muted-foreground hidden"></div>
+              <div class="flex flex-wrap items-end gap-3">
+                <div class="flex flex-col gap-1">
+                  <label class="text-sm text-muted-foreground">Of URL</label>
+                  <input id="item-url" class="bg-background border border-border rounded-md px-3 py-2 text-foreground w-64" type="text" placeholder="https://..." />
+                </div>
+                <div class="flex flex-col gap-1" id="item-title-group">
+                  <label class="text-sm text-muted-foreground">Titel</label>
+                  <input id="item-title" class="bg-background border border-border rounded-md px-3 py-2 text-foreground" type="text" placeholder="Titel (optioneel bij meerdere bestanden)" />
+                </div>
+                <div class="flex flex-col gap-1" id="item-link-group">
+                  <label class="text-sm text-muted-foreground">Link URL</label>
+                  <input id="item-link" class="bg-background border border-border rounded-md px-3 py-2 text-foreground w-48" type="text" placeholder="https://..." />
+                </div>
+              </div>
+              <div class="flex justify-end mt-2">
+                <button id="add-item-btn" data-btn="primary">Afbeelding toevoegen</button>
+              </div>
+            </div>
+
+            <div id="items-list" class="mt-4 space-y-2"></div>
+          </article>
+        </div>
+      </section>
+
+      <div id="toast" class="hidden fixed right-5 bottom-5 bg-card border border-border rounded-lg px-4 py-3 text-sm shadow-lg z-50"></div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
