@@ -37,6 +37,9 @@ const el = {
   editShowTitle: document.getElementById('edit-show-title'),
   editTitleAlign: document.getElementById('edit-title-align'),
   editBtnText: document.getElementById('edit-btn-text'),
+  editBgColorPicker: document.getElementById('edit-bg-color-picker'),
+  editBgColorText: document.getElementById('edit-bg-color-text'),
+  editBgColorClear: document.getElementById('edit-bg-color-clear'),
   lightboxGroup: document.getElementById('lightbox-group'),
   btnTextGroup: document.getElementById('btn-text-group'),
   showTitleGroup: document.getElementById('show-title-group'),
@@ -130,6 +133,22 @@ function filenameToTitle(name) {
   var pretty = stem.replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (!pretty) return '';
   return pretty.charAt(0).toUpperCase() + pretty.slice(1);
+}
+
+function isValidCssColor(value) {
+  if (!value) return false;
+  const v = String(value).trim();
+  if (!v) return false;
+  if (/^#[0-9a-fA-F]{3,8}$/.test(v)) return true;
+  if (/^(transparent|inherit|initial|unset|currentColor)$/i.test(v)) return true;
+  return false;
+}
+
+function syncBgColorFromText() {
+  var v = el.editBgColorText.value.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+    el.editBgColorPicker.value = v;
+  }
 }
 
 // ---- Layout-specific visibility ----
@@ -235,6 +254,7 @@ async function createCollection() {
       showTitle: false,
       titleAlign: 'left',
       buttonText: 'Bekijk project',
+      backgroundColor: '',
     });
 
     el.newColName.value = '';
@@ -300,6 +320,13 @@ async function openEditor(slug) {
   el.editShowTitle.checked = col?.value?.showTitle === true || col?.value?.showTitle === 'true';
   el.editTitleAlign.value = col?.value?.titleAlign || 'left';
   el.editBtnText.value = col?.value?.buttonText || 'Bekijk project';
+  var bg = col?.value?.backgroundColor || '';
+  el.editBgColorText.value = bg;
+  if (/^#[0-9a-fA-F]{6}$/.test(bg)) {
+    el.editBgColorPicker.value = bg;
+  } else {
+    el.editBgColorPicker.value = '#000000';
+  }
 
   updateLayoutFields();
   resetItemForm();
@@ -316,6 +343,12 @@ function closeEditor() {
 async function saveSettings() {
   if (!state.selectedSlug) return;
 
+  var bgRaw = el.editBgColorText.value.trim();
+  if (bgRaw && !isValidCssColor(bgRaw)) {
+    notify('Ongeldige achtergrondkleur (gebruik #hex)', true);
+    return;
+  }
+
   try {
     await api.upsertDataRecord(SCOPES.collections, colKey(state.selectedSlug), {
       slug: state.selectedSlug,
@@ -327,6 +360,7 @@ async function saveSettings() {
       showTitle: el.editShowTitle.checked,
       titleAlign: el.editTitleAlign.value,
       buttonText: el.editBtnText.value.trim() || 'Bekijk project',
+      backgroundColor: bgRaw,
     });
 
     await loadCollections();
@@ -621,6 +655,16 @@ el.saveSettingsBtn.addEventListener('click', function () { void saveSettings(); 
 el.addItemBtn.addEventListener('click', function () { void addOrUpdateItem(); });
 el.editLayout.addEventListener('change', updateLayoutFields);
 el.editShowTitle.addEventListener('change', updateLayoutFields);
+
+// Background color: keep picker + text input in sync
+el.editBgColorPicker.addEventListener('input', function () {
+  el.editBgColorText.value = el.editBgColorPicker.value;
+});
+el.editBgColorText.addEventListener('input', syncBgColorFromText);
+el.editBgColorClear.addEventListener('click', function () {
+  el.editBgColorText.value = '';
+  el.editBgColorPicker.value = '#000000';
+});
 
 // Dropzone interactions
 el.itemDropzone.addEventListener('click', function (e) {

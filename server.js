@@ -46,9 +46,10 @@ function buildCardItem(item, lightbox) {
   }
 
   const lbAttr = lightbox ? ' data-is-lightbox' : '';
+  const cardClass = linkUrl ? 'is-card is-card--has-btn' : 'is-card';
 
   return `
-    <div class="is-card"${lbAttr}>
+    <div class="${cardClass}"${lbAttr}>
       <div class="is-card-image">
         <img src="${imageUrl}" alt="${title}" loading="lazy" />
       </div>
@@ -58,6 +59,25 @@ function buildCardItem(item, lightbox) {
       </div>
     </div>
   `;
+}
+
+// Validates a CSS color string. Accepts only #hex (3/4/6/8) and a small
+// allowlist of keywords. Returns the trimmed value if safe, else ''.
+function sanitizeCssColor(value) {
+  if (!value) return '';
+  const v = String(value).trim();
+  if (!v) return '';
+  if (/^#[0-9a-fA-F]{3,8}$/.test(v)) return v;
+  if (/^(transparent|inherit|initial|unset|currentColor)$/i.test(v)) return v;
+  return '';
+}
+
+function buildSectionStyle(collection) {
+  const columns = Number(collection.columns) || 3;
+  const parts = [`--is-columns: ${columns}`];
+  const bg = sanitizeCssColor(collection.backgroundColor);
+  if (bg) parts.push(`background-color: ${bg}`);
+  return parts.join('; ');
 }
 
 function buildGridItem(item, lightbox, showTitle) {
@@ -86,7 +106,6 @@ function buildGridItem(item, lightbox, showTitle) {
 }
 
 function renderCards(collection, items) {
-  const columns = Number(collection.columns) || 3;
   const lightbox = collection.lightbox === true || collection.lightbox === 'true';
   const titlePos = String(collection.titlePosition || 'below');
   const titleAlign = String(collection.titleAlign || 'left');
@@ -101,7 +120,7 @@ function renderCards(collection, items) {
   ].filter(Boolean).join(' ');
 
   return `
-    <div class="${classes}" style="--is-columns: ${columns}">
+    <div class="${classes}" style="${buildSectionStyle(collection)}">
       <div class="is-grid">
         ${itemsHtml}
       </div>
@@ -110,7 +129,6 @@ function renderCards(collection, items) {
 }
 
 function renderGrid(collection, items) {
-  const columns = Number(collection.columns) || 3;
   const lightbox = collection.lightbox === true || collection.lightbox === 'true';
   const titlePos = String(collection.titlePosition || 'below');
   const titleAlign = String(collection.titleAlign || 'left');
@@ -126,7 +144,7 @@ function renderGrid(collection, items) {
   ].filter(Boolean).join(' ');
 
   return `
-    <div class="${classes}" style="--is-columns: ${columns}">
+    <div class="${classes}" style="${buildSectionStyle(collection)}">
       <div class="is-grid">
         ${itemsHtml}
       </div>
@@ -140,8 +158,8 @@ module.exports = {
     const assetBase = `/api/plugins/${encodeURIComponent(pluginName)}/assets`;
 
     return [
-      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=3" />`,
-      `<script defer src="${assetBase}/image-sections.js?v=3"></script>`,
+      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=4" />`,
+      `<script defer src="${assetBase}/image-sections.js?v=4"></script>`,
     ].join('\n');
   },
 

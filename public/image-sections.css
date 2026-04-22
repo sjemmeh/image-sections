@@ -125,30 +125,45 @@
 }
 
 /* ----- Title alignment (left/center/right) ----- */
-/* Override the default space-between on the footer and align the title text */
+/*
+ * Behavior:
+ * - When a card has NO button: title fills the footer; text-align controls alignment.
+ * - When a card HAS a button:
+ *     - title-left  -> title left,  button right (row + space-between)
+ *     - title-right -> title right, button left  (row-reverse + space-between)
+ *     - title-center -> forced to title-left layout (button on right)
+ */
 
-.is-title-left.is-layout-cards .is-card-footer {
-  justify-content: flex-start !important;
+/* Make the title fill the footer when there's no button so text-align takes effect */
+.is-layout-cards .is-card:not(.is-card--has-btn) .is-card-title {
+  flex: 1;
 }
-.is-title-left.is-layout-cards .is-card-title,
+
+/* No-button case: align the title text */
+.is-title-left.is-layout-cards .is-card:not(.is-card--has-btn) .is-card-title,
 .is-title-left.is-layout-grid .is-grid-caption {
   text-align: left;
 }
-
-.is-title-center.is-layout-cards .is-card-footer {
-  justify-content: center !important;
-}
-.is-title-center.is-layout-cards .is-card-title,
+.is-title-center.is-layout-cards .is-card:not(.is-card--has-btn) .is-card-title,
 .is-title-center.is-layout-grid .is-grid-caption {
   text-align: center;
 }
-
-.is-title-right.is-layout-cards .is-card-footer {
-  justify-content: flex-end !important;
-}
-.is-title-right.is-layout-cards .is-card-title,
+.is-title-right.is-layout-cards .is-card:not(.is-card--has-btn) .is-card-title,
 .is-title-right.is-layout-grid .is-grid-caption {
   text-align: right;
+}
+
+/* With-button case: title left + button right (default) */
+.is-title-left.is-layout-cards .is-card--has-btn .is-card-footer,
+.is-title-center.is-layout-cards .is-card--has-btn .is-card-footer {
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+/* With-button case: title right + button left (mirrored) */
+.is-title-right.is-layout-cards .is-card--has-btn .is-card-footer {
+  flex-direction: row-reverse;
+  justify-content: space-between;
 }
 
 /* ----- Grid Layout ----- */

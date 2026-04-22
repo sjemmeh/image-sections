@@ -95,6 +95,14 @@
                 <label class="text-sm text-muted-foreground">Knoptekst</label>
                 <input id="edit-btn-text" class="bg-background border border-border rounded-md px-3 py-2 text-foreground" type="text" placeholder="Bekijk project" />
               </div>
+              <div class="flex flex-col gap-1" id="bg-color-group">
+                <label class="text-sm text-muted-foreground">Achtergrondkleur</label>
+                <div class="flex items-center gap-2 h-[42px]">
+                  <input id="edit-bg-color-picker" type="color" class="w-10 h-10 p-0 border border-border rounded-md bg-background cursor-pointer" value="#000000" />
+                  <input id="edit-bg-color-text" class="bg-background border border-border rounded-md px-3 py-2 text-foreground w-44" type="text" placeholder="#rrggbb" />
+                  <button id="edit-bg-color-clear" data-btn="secondary" type="button" title="Maak transparant">Wissen</button>
+                </div>
+              </div>
             </div>
             <div class="flex justify-end mt-3">
               <button id="save-settings-btn" data-btn="primary">Instellingen opslaan</button>
