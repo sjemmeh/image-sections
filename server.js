@@ -34,7 +34,7 @@ function sortByOrder(a, b) {
   return String(a?.value?.title || '').localeCompare(String(b?.value?.title || ''));
 }
 
-function buildCardItem(item, lightbox) {
+function buildCardItem(item, lightbox, bgColor) {
   const imageUrl = escapeHtml(normalizePluginMediaUrl(item.value?.imageUrl));
   const title = escapeHtml(item.value?.title || '');
   const linkUrl = item.value?.linkUrl ? escapeHtml(item.value.linkUrl) : '';
@@ -47,9 +47,10 @@ function buildCardItem(item, lightbox) {
 
   const lbAttr = lightbox ? ' data-is-lightbox' : '';
   const cardClass = linkUrl ? 'is-card is-card--has-btn' : 'is-card';
+  const styleAttr = bgColor ? ` style="background-color: ${bgColor}"` : '';
 
   return `
-    <div class="${cardClass}"${lbAttr}>
+    <div class="${cardClass}"${lbAttr}${styleAttr}>
       <div class="is-card-image">
         <img src="${imageUrl}" alt="${title}" loading="lazy" />
       </div>
@@ -72,15 +73,7 @@ function sanitizeCssColor(value) {
   return '';
 }
 
-function buildSectionStyle(collection) {
-  const columns = Number(collection.columns) || 3;
-  const parts = [`--is-columns: ${columns}`];
-  const bg = sanitizeCssColor(collection.backgroundColor);
-  if (bg) parts.push(`background-color: ${bg}`);
-  return parts.join('; ');
-}
-
-function buildGridItem(item, lightbox, showTitle) {
+function buildGridItem(item, lightbox, showTitle, bgColor) {
   const imageUrl = escapeHtml(normalizePluginMediaUrl(item.value?.imageUrl));
   const title = escapeHtml(item.value?.title || '');
 
@@ -88,17 +81,11 @@ function buildGridItem(item, lightbox, showTitle) {
     ? `<span class="is-grid-caption">${title}</span>`
     : '';
 
-  if (lightbox) {
-    return `
-      <div class="is-grid-item" data-is-lightbox>
-        <img src="${imageUrl}" alt="${title}" loading="lazy" />
-        ${captionHtml}
-      </div>
-    `;
-  }
+  const lbAttr = lightbox ? ' data-is-lightbox' : '';
+  const styleAttr = bgColor ? ` style="background-color: ${bgColor}"` : '';
 
   return `
-    <div class="is-grid-item">
+    <div class="is-grid-item"${lbAttr}${styleAttr}>
       <img src="${imageUrl}" alt="${title}" loading="lazy" />
       ${captionHtml}
     </div>
@@ -109,7 +96,9 @@ function renderCards(collection, items) {
   const lightbox = collection.lightbox === true || collection.lightbox === 'true';
   const titlePos = String(collection.titlePosition || 'below');
   const titleAlign = String(collection.titleAlign || 'left');
-  const itemsHtml = items.map((item) => buildCardItem(item, lightbox)).join('');
+  const columns = Number(collection.columns) || 3;
+  const bgColor = sanitizeCssColor(collection.backgroundColor);
+  const itemsHtml = items.map((item) => buildCardItem(item, lightbox, bgColor)).join('');
 
   const classes = [
     'is-section',
@@ -120,7 +109,7 @@ function renderCards(collection, items) {
   ].filter(Boolean).join(' ');
 
   return `
-    <div class="${classes}" style="${buildSectionStyle(collection)}">
+    <div class="${classes}" style="--is-columns: ${columns}">
       <div class="is-grid">
         ${itemsHtml}
       </div>
@@ -133,7 +122,9 @@ function renderGrid(collection, items) {
   const titlePos = String(collection.titlePosition || 'below');
   const titleAlign = String(collection.titleAlign || 'left');
   const showTitle = collection.showTitle === true || collection.showTitle === 'true';
-  const itemsHtml = items.map((item) => buildGridItem(item, lightbox, showTitle)).join('');
+  const columns = Number(collection.columns) || 3;
+  const bgColor = sanitizeCssColor(collection.backgroundColor);
+  const itemsHtml = items.map((item) => buildGridItem(item, lightbox, showTitle, bgColor)).join('');
 
   const classes = [
     'is-section',
@@ -144,7 +135,7 @@ function renderGrid(collection, items) {
   ].filter(Boolean).join(' ');
 
   return `
-    <div class="${classes}" style="${buildSectionStyle(collection)}">
+    <div class="${classes}" style="--is-columns: ${columns}">
       <div class="is-grid">
         ${itemsHtml}
       </div>
@@ -158,8 +149,8 @@ module.exports = {
     const assetBase = `/api/plugins/${encodeURIComponent(pluginName)}/assets`;
 
     return [
-      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=4" />`,
-      `<script defer src="${assetBase}/image-sections.js?v=4"></script>`,
+      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=5" />`,
+      `<script defer src="${assetBase}/image-sections.js?v=5"></script>`,
     ].join('\n');
   },
 
