@@ -1,1 +1,287 @@
-.is-section{--is-columns:3;width:100%}.is-grid{grid-template-columns:repeat(var(--is-columns), 1fr);justify-content:center;gap:1.5rem;display:grid}@media (width<=1024px){.is-grid{grid-template-columns:repeat(2,1fr)}}@media (width<=640px){.is-grid{grid-template-columns:1fr}}.is-layout-cards .is-card{flex-direction:column;display:flex}.is-layout-cards .is-card-image{overflow:hidden}.is-layout-cards .is-card-image img{aspect-ratio:4/3;object-fit:cover;width:100%;transition:transform .3s;display:block}.is-layout-cards .is-card:hover .is-card-image img{transform:scale(1.03)}.is-layout-cards .is-card-footer{justify-content:space-between;align-items:center;gap:.75rem;padding:.75rem;display:flex}.is-layout-cards .is-card-title{letter-spacing:.05em;text-transform:uppercase;font-size:.875rem;font-weight:700}.is-layout-cards .is-card-btn{letter-spacing:.04em;text-transform:uppercase;color:inherit;white-space:nowrap;border:1.5px solid;justify-content:center;align-items:center;padding:.375rem .875rem;font-size:.75rem;font-weight:600;text-decoration:none;transition:background-color .2s,color .2s;display:inline-flex}.is-layout-cards .is-card-btn:hover{background-color:#0000000f}.is-layout-cards.is-has-lightbox .is-card{cursor:pointer}.is-title-above.is-layout-cards .is-card,.is-title-above.is-layout-grid .is-grid-item{flex-direction:column-reverse}.is-grid-item{flex-direction:column;display:flex}.is-layout-grid .is-grid-item:has(.is-grid-caption){overflow:visible}.is-grid-caption{letter-spacing:.04em;text-transform:uppercase;padding:.4rem .1rem;font-size:.8rem;font-weight:600;display:block}.is-layout-cards .is-card:not(.is-card--has-btn) .is-card-title{flex:1}.is-title-left.is-layout-cards .is-card:not(.is-card--has-btn) .is-card-title,.is-title-left.is-layout-grid .is-grid-caption{text-align:left}.is-title-center.is-layout-cards .is-card:not(.is-card--has-btn) .is-card-title,.is-title-center.is-layout-grid .is-grid-caption{text-align:center}.is-title-right.is-layout-cards .is-card:not(.is-card--has-btn) .is-card-title,.is-title-right.is-layout-grid .is-grid-caption{text-align:right}.is-title-left.is-layout-cards .is-card--has-btn .is-card-footer,.is-title-center.is-layout-cards .is-card--has-btn .is-card-footer{flex-direction:row;justify-content:space-between}.is-title-right.is-layout-cards .is-card--has-btn .is-card-footer{flex-direction:row-reverse;justify-content:space-between}.is-layout-grid .is-grid-item{overflow:hidden}.is-layout-grid .is-grid-item img{aspect-ratio:4/3;object-fit:cover;width:100%;transition:transform .3s,opacity .3s;display:block}.is-layout-grid .is-grid-item:hover img{transform:scale(1.03)}.is-layout-grid.is-has-lightbox .is-grid-item{cursor:pointer}.is-lightbox-overlay{z-index:9999;opacity:0;cursor:pointer;background:#000000d9;justify-content:center;align-items:center;transition:opacity .25s;display:flex;position:fixed;inset:0}.is-lightbox-overlay.is-active{opacity:1}.is-lightbox-overlay img{object-fit:contain;cursor:default;max-width:90vw;max-height:90vh;box-shadow:0 8px 32px #0006}.is-lightbox-figure{flex-direction:column;align-items:center;gap:.75rem;max-width:90vw;margin:0;display:flex}.is-lightbox-figure img{max-height:85vh}.is-lightbox-caption{color:#fff;letter-spacing:.05em;text-transform:uppercase;text-align:center;opacity:.9;cursor:default;word-break:break-word;max-width:90vw;font-size:.875rem;font-weight:600}.is-lightbox-close{color:#fff;cursor:pointer;opacity:.7;background:0 0;border:none;padding:.25rem .5rem;font-size:2rem;line-height:1;transition:opacity .2s;position:absolute;top:1rem;right:1.5rem}.is-lightbox-close:hover{opacity:1}.is-lightbox-nav{color:#fff;cursor:pointer;opacity:.6;user-select:none;background:0 0;border:none;padding:.5rem 1rem;font-size:2.5rem;line-height:1;transition:opacity .2s;position:absolute;top:50%;transform:translateY(-50%)}.is-lightbox-nav:hover{opacity:1}.is-lightbox-prev{left:.5rem}.is-lightbox-next{right:.5rem}
+/* ============================================================
+   Image Sections Plugin – Public Styles
+   ============================================================ */
+
+/* ----- Shared ----- */
+
+.is-section {
+  --is-columns: 3;
+  width: 100%;
+}
+
+.is-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--is-columns), 1fr);
+  gap: 1.5rem;
+  justify-content: center;
+}
+
+@media (max-width: 1024px) {
+  .is-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .is-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ----- Cards Layout ----- */
+
+.is-layout-cards .is-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.is-layout-cards .is-card-image {
+  overflow: hidden;
+}
+
+.is-layout-cards .is-card-image img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.is-layout-cards .is-card:hover .is-card-image img {
+  transform: scale(1.03);
+}
+
+.is-layout-cards .is-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.is-layout-cards .is-card-title {
+  font-weight: 700;
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.is-layout-cards .is-card-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: inherit;
+  border: 1.5px solid currentColor;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+}
+
+.is-layout-cards .is-card-btn:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.is-layout-cards.is-has-lightbox .is-card {
+  cursor: pointer;
+}
+
+/* ----- Title position (above/below) ----- */
+
+/* Cards: flip card direction so footer appears above the image */
+.is-title-above.is-layout-cards .is-card {
+  flex-direction: column-reverse;
+}
+
+/* Grid: flip grid-item direction so caption appears above the image */
+.is-title-above.is-layout-grid .is-grid-item {
+  flex-direction: column-reverse;
+}
+
+/* Grid layout captions */
+.is-grid-item {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Grid items with captions must not clip the caption */
+.is-layout-grid .is-grid-item:has(.is-grid-caption) {
+  overflow: visible;
+}
+
+.is-grid-caption {
+  display: block;
+  padding: 0.4rem 0.1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ----- Title alignment (left/center/right) ----- */
+/*
+ * Behavior:
+ * - When a card has NO button: title fills the footer; text-align controls alignment.
+ * - When a card HAS a button:
+ *     - title-left  -> title left,  button right (row + space-between)
+ *     - title-right -> title right, button left  (row-reverse + space-between)
+ *     - title-center -> forced to title-left layout (button on right)
+ */
+
+/* Make the title fill the footer when there's no button so text-align takes effect */
+.is-layout-cards .is-card:not(.is-card--has-btn) .is-card-title {
+  flex: 1;
+}
+
+/* No-button case: align the title text */
+.is-title-left.is-layout-cards .is-card:not(.is-card--has-btn) .is-card-title,
+.is-title-left.is-layout-grid .is-grid-caption {
+  text-align: left;
+}
+.is-title-center.is-layout-cards .is-card:not(.is-card--has-btn) .is-card-title,
+.is-title-center.is-layout-grid .is-grid-caption {
+  text-align: center;
+}
+.is-title-right.is-layout-cards .is-card:not(.is-card--has-btn) .is-card-title,
+.is-title-right.is-layout-grid .is-grid-caption {
+  text-align: right;
+}
+
+/* With-button case: title left + button right (default) */
+.is-title-left.is-layout-cards .is-card--has-btn .is-card-footer,
+.is-title-center.is-layout-cards .is-card--has-btn .is-card-footer {
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+/* With-button case: title right + button left (mirrored) */
+.is-title-right.is-layout-cards .is-card--has-btn .is-card-footer {
+  flex-direction: row-reverse;
+  justify-content: space-between;
+}
+
+/* ----- Grid Layout ----- */
+
+.is-layout-grid .is-grid-item {
+  overflow: hidden;
+}
+
+.is-layout-grid .is-grid-item img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.is-layout-grid .is-grid-item:hover img {
+  transform: scale(1.03);
+}
+
+.is-layout-grid.is-has-lightbox .is-grid-item {
+  cursor: pointer;
+}
+
+/* ----- Lightbox ----- */
+
+.is-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  cursor: pointer;
+}
+
+.is-lightbox-overlay.is-active {
+  opacity: 1;
+}
+
+.is-lightbox-overlay img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  cursor: default;
+}
+
+.is-lightbox-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 90vw;
+}
+
+.is-lightbox-figure img {
+  max-height: 85vh;
+}
+
+.is-lightbox-caption {
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: center;
+  opacity: 0.9;
+  cursor: default;
+  max-width: 90vw;
+  word-break: break-word;
+}
+
+.is-lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.is-lightbox-close:hover {
+  opacity: 1;
+}
+
+.is-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 2.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+  user-select: none;
+}
+
+.is-lightbox-nav:hover {
+  opacity: 1;
+}
+
+.is-lightbox-prev {
+  left: 0.5rem;
+}
+
+.is-lightbox-next {
+  right: 0.5rem;
+}

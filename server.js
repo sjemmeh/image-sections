@@ -152,8 +152,8 @@ module.exports = {
     const assetBase = `/api/plugins/${encodeURIComponent(pluginName)}/assets`;
 
     return [
-      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=10" />`,
-      `<script defer src="${assetBase}/image-sections.js?v=10"></script>`,
+      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=11" />`,
+      `<script defer src="${assetBase}/image-sections.js?v=11"></script>`,
     ].join('\n');
   },
 
