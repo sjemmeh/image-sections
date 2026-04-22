@@ -159,7 +159,8 @@ function updateLayoutFields() {
 
   el.lightboxGroup.style.display = '';
   el.btnTextGroup.style.display = layout === 'cards' ? '' : 'none';
-  el.itemTitleGroup.style.display = layout === 'cards' ? '' : 'none';
+  // Per-item title is editable for cards always, and for grid when "show title" is enabled
+  el.itemTitleGroup.style.display = (layout === 'cards' || gridTitleEnabled) ? '' : 'none';
   el.itemLinkGroup.style.display = layout === 'cards' ? '' : 'none';
 
   // Show title checkbox only relevant for grid
