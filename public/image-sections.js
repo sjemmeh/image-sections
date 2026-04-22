@@ -104,7 +104,11 @@
       var gridItems = section.querySelectorAll('[data-is-lightbox]');
 
       gridItems.forEach(function (gridItem, index) {
-        gridItem.addEventListener('click', function () {
+        gridItem.addEventListener('click', function (e) {
+          // Ignore clicks that originated on an interactive element
+          // (e.g. the card's CTA button/link) so only the image opens the lightbox.
+          if (e.target.closest('a, button')) return;
+
           var items = [];
           gridItems.forEach(function (gi) {
             var img = gi.querySelector('img');
