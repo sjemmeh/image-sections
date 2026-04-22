@@ -511,8 +511,6 @@ async function addOrUpdateItem() {
       notify('Selecteer een bestand of vul een URL in', true);
       return;
     }
-    var col = getSelectedCollection();
-    var buttonText = col?.value?.buttonText || 'Bekijk project';
     var existing = state.items.find(function (r) { return r.key === state.editingItemKey; });
     var sortOrder = existing?.value?.sortOrder ?? state.items.length;
     try {
@@ -521,7 +519,6 @@ async function addOrUpdateItem() {
         imageUrl: imageUrl,
         title: title,
         linkUrl: linkUrl,
-        buttonText: buttonText,
         sortOrder: sortOrder,
       });
       resetItemForm();
@@ -539,8 +536,6 @@ async function addOrUpdateItem() {
     return;
   }
 
-  var collection = getSelectedCollection();
-  var btnText = collection?.value?.buttonText || 'Bekijk project';
   var baseSortOrder = state.items.length;
   var createdCount = 0;
   var failedCount = 0;
@@ -556,7 +551,6 @@ async function addOrUpdateItem() {
           imageUrl: urlInput,
           title: title,
           linkUrl: linkUrl,
-          buttonText: btnText,
           sortOrder: baseSortOrder,
         },
       );
@@ -587,7 +581,6 @@ async function addOrUpdateItem() {
           imageUrl: uploadedUrl,
           title: itemTitle,
           linkUrl: itemLink,
-          buttonText: btnText,
           sortOrder: baseSortOrder + i,
         },
       );

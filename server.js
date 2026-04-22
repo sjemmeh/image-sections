@@ -34,15 +34,15 @@ function sortByOrder(a, b) {
   return String(a?.value?.title || '').localeCompare(String(b?.value?.title || ''));
 }
 
-function buildCardItem(item, lightbox, bgColor) {
+function buildCardItem(item, lightbox, bgColor, buttonText) {
   const imageUrl = escapeHtml(normalizePluginMediaUrl(item.value?.imageUrl));
   const title = escapeHtml(item.value?.title || '');
   const linkUrl = item.value?.linkUrl ? escapeHtml(item.value.linkUrl) : '';
-  const buttonText = escapeHtml(item.value?.buttonText || 'Bekijk project');
+  const safeButtonText = escapeHtml(buttonText || 'Bekijk project');
 
   let buttonHtml = '';
   if (linkUrl) {
-    buttonHtml = `<a href="${linkUrl}" class="is-card-btn">${buttonText}</a>`;
+    buttonHtml = `<a href="${linkUrl}" class="is-card-btn">${safeButtonText}</a>`;
   }
 
   const lbAttr = lightbox ? ' data-is-lightbox' : '';
@@ -98,7 +98,8 @@ function renderCards(collection, items) {
   const titleAlign = String(collection.titleAlign || 'left');
   const columns = Number(collection.columns) || 3;
   const bgColor = sanitizeCssColor(collection.backgroundColor);
-  const itemsHtml = items.map((item) => buildCardItem(item, lightbox, bgColor)).join('');
+  const buttonText = collection.buttonText || 'Bekijk project';
+  const itemsHtml = items.map((item) => buildCardItem(item, lightbox, bgColor, buttonText)).join('');
 
   const classes = [
     'is-section',
@@ -150,7 +151,7 @@ module.exports = {
 
     return [
       `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=7" />`,
-      `<script defer src="${assetBase}/image-sections.js?v=6"></script>`,
+      `<script defer src="${assetBase}/image-sections.js?v=7"></script>`,
     ].join('\n');
   },
 
