@@ -18,7 +18,10 @@
     overlay.innerHTML = `
       <button class="is-lightbox-close" aria-label="Sluiten">&times;</button>
       <button class="is-lightbox-nav is-lightbox-prev" aria-label="Vorige">&lsaquo;</button>
-      <img src="" alt="" />
+      <figure class="is-lightbox-figure">
+        <img src="" alt="" />
+        <figcaption class="is-lightbox-caption"></figcaption>
+      </figure>
       <button class="is-lightbox-nav is-lightbox-next" aria-label="Volgende">&rsaquo;</button>
     `;
 
@@ -48,6 +51,11 @@
     var item = currentItems[currentIndex];
     el.src = item.src;
     el.alt = item.alt || '';
+
+    var caption = overlay.querySelector('.is-lightbox-caption');
+    var title = (item.title || item.alt || '').trim();
+    caption.textContent = title;
+    caption.style.display = title ? '' : 'none';
 
     var prevBtn = overlay.querySelector('.is-lightbox-prev');
     var nextBtn = overlay.querySelector('.is-lightbox-next');
@@ -113,7 +121,8 @@
           gridItems.forEach(function (gi) {
             var img = gi.querySelector('img');
             if (img) {
-              items.push({ src: img.src, alt: img.alt || '' });
+              var title = gi.getAttribute('data-is-title') || img.alt || '';
+              items.push({ src: img.src, alt: img.alt || '', title: title });
             }
           });
           open(items, index);

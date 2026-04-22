@@ -48,9 +48,10 @@ function buildCardItem(item, lightbox, bgColor, buttonText) {
   const lbAttr = lightbox ? ' data-is-lightbox' : '';
   const cardClass = linkUrl ? 'is-card is-card--has-btn' : 'is-card';
   const styleAttr = bgColor ? ` style="background-color: ${bgColor}"` : '';
+  const titleAttr = title ? ` data-is-title="${title}"` : '';
 
   return `
-    <div class="${cardClass}"${lbAttr}${styleAttr}>
+    <div class="${cardClass}"${lbAttr}${titleAttr}${styleAttr}>
       <div class="is-card-image">
         <img src="${imageUrl}" alt="${title}" loading="lazy" />
       </div>
@@ -83,9 +84,10 @@ function buildGridItem(item, lightbox, showTitle, bgColor) {
 
   const lbAttr = lightbox ? ' data-is-lightbox' : '';
   const styleAttr = bgColor ? ` style="background-color: ${bgColor}"` : '';
+  const titleAttr = title ? ` data-is-title="${title}"` : '';
 
   return `
-    <div class="is-grid-item"${lbAttr}${styleAttr}>
+    <div class="is-grid-item"${lbAttr}${titleAttr}${styleAttr}>
       <img src="${imageUrl}" alt="${title}" loading="lazy" />
       ${captionHtml}
     </div>
@@ -150,8 +152,8 @@ module.exports = {
     const assetBase = `/api/plugins/${encodeURIComponent(pluginName)}/assets`;
 
     return [
-      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=8" />`,
-      `<script defer src="${assetBase}/image-sections.js?v=8"></script>`,
+      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=9" />`,
+      `<script defer src="${assetBase}/image-sections.js?v=9"></script>`,
     ].join('\n');
   },
 
