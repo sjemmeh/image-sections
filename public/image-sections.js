@@ -110,28 +110,40 @@
       var scroll = section.querySelector('.is-news-scroll');
       if (!scroll) return;
 
+      var prevBtn = document.createElement('button');
+      prevBtn.className = 'is-news-prev';
+      prevBtn.setAttribute('aria-label', 'Vorige nieuwsberichten');
+      prevBtn.innerHTML = '&lsaquo;';
+      section.appendChild(prevBtn);
+
       var nextBtn = document.createElement('button');
       nextBtn.className = 'is-news-next';
       nextBtn.setAttribute('aria-label', 'Volgende nieuwsberichten');
       nextBtn.innerHTML = '&rsaquo;';
       section.appendChild(nextBtn);
 
-      function scrollNext() {
+      function scrollAmount() {
         var card = scroll.querySelector('.is-news-card');
         var gap = parseFloat(getComputedStyle(scroll).gap) || 20;
-        var amount = card ? card.offsetWidth + gap : 300;
-        scroll.scrollBy({ left: amount, behavior: 'smooth' });
+        return card ? card.offsetWidth + gap : 300;
       }
 
-      function updateBtn() {
+      function updateBtns() {
+        var atStart = scroll.scrollLeft <= 4;
         var atEnd = scroll.scrollLeft + scroll.clientWidth >= scroll.scrollWidth - 4;
+        prevBtn.style.display = atStart ? 'none' : '';
         nextBtn.style.display = atEnd ? 'none' : '';
       }
 
-      nextBtn.addEventListener('click', scrollNext);
-      scroll.addEventListener('scroll', updateBtn, { passive: true });
-      window.addEventListener('resize', updateBtn, { passive: true });
-      updateBtn();
+      prevBtn.addEventListener('click', function () {
+        scroll.scrollBy({ left: -scrollAmount(), behavior: 'smooth' });
+      });
+      nextBtn.addEventListener('click', function () {
+        scroll.scrollBy({ left: scrollAmount(), behavior: 'smooth' });
+      });
+      scroll.addEventListener('scroll', updateBtns, { passive: true });
+      window.addEventListener('resize', updateBtns, { passive: true });
+      updateBtns();
     });
   }
 
