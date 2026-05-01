@@ -156,17 +156,18 @@ function syncBgColorFromText() {
 function updateLayoutFields() {
   var layout = el.editLayout.value;
   var gridTitleEnabled = layout === 'grid' && el.editShowTitle.checked;
+  var isNews = layout === 'news';
 
-  el.lightboxGroup.style.display = '';
-  el.btnTextGroup.style.display = layout === 'cards' ? '' : 'none';
-  // Per-item title is editable for cards always, and for grid when "show title" is enabled
-  el.itemTitleGroup.style.display = (layout === 'cards' || gridTitleEnabled) ? '' : 'none';
-  el.itemLinkGroup.style.display = layout === 'cards' ? '' : 'none';
+  el.lightboxGroup.style.display = isNews ? 'none' : '';
+  el.btnTextGroup.style.display = (layout === 'cards' || isNews) ? '' : 'none';
+  // Per-item title is editable for cards/news always, and for grid when "show title" is enabled
+  el.itemTitleGroup.style.display = (layout === 'cards' || isNews || gridTitleEnabled) ? '' : 'none';
+  el.itemLinkGroup.style.display = (layout === 'cards' || isNews) ? '' : 'none';
 
   // Show title checkbox only relevant for grid
   el.showTitleGroup.style.display = layout === 'grid' ? '' : 'none';
 
-  // Title position + alignment: always shown for cards; for grid only when show title is checked
+  // Title position + alignment: only relevant for cards/grid
   var showTitleOptions = layout === 'cards' || gridTitleEnabled;
   el.titlePositionGroup.style.display = showTitleOptions ? '' : 'none';
   el.titleAlignGroup.style.display = showTitleOptions ? '' : 'none';
@@ -254,7 +255,7 @@ async function createCollection() {
       titlePosition: 'below',
       showTitle: false,
       titleAlign: 'left',
-      buttonText: 'Bekijk project',
+      buttonText: layout === 'news' ? 'Lees het bericht' : 'Bekijk project',
       backgroundColor: '',
     });
 

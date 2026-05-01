@@ -120,6 +120,42 @@ function renderCards(collection, items) {
   `;
 }
 
+function buildNewsItem(item, buttonText) {
+  const imageUrl = escapeHtml(normalizePluginMediaUrl(item.value?.imageUrl));
+  const title = escapeHtml(item.value?.title || '');
+  const linkUrl = item.value?.linkUrl ? escapeHtml(item.value.linkUrl) : '';
+  const safeButtonText = escapeHtml(buttonText || 'Lees het bericht');
+
+  const linkHtml = linkUrl
+    ? `<a href="${linkUrl}" class="is-news-card-link">${safeButtonText} ›</a>`
+    : '';
+
+  return `
+    <div class="is-news-card">
+      <div class="is-news-card-image">
+        <img src="${imageUrl}" alt="${title}" loading="lazy" />
+      </div>
+      <div class="is-news-card-body">
+        <span class="is-news-card-title">${title}</span>
+        ${linkHtml}
+      </div>
+    </div>
+  `;
+}
+
+function renderNews(collection, items) {
+  const buttonText = collection.buttonText || 'Lees het bericht';
+  const itemsHtml = items.map((item) => buildNewsItem(item, buttonText)).join('');
+
+  return `
+    <div class="is-section is-layout-news">
+      <div class="is-news-scroll">
+        ${itemsHtml}
+      </div>
+    </div>
+  `;
+}
+
 function renderGrid(collection, items) {
   const lightbox = collection.lightbox === true || collection.lightbox === 'true';
   const titlePos = String(collection.titlePosition || 'below');
@@ -152,8 +188,8 @@ module.exports = {
     const assetBase = `/api/plugins/${encodeURIComponent(pluginName)}/assets`;
 
     return [
-      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=11" />`,
-      `<script defer src="${assetBase}/image-sections.js?v=11"></script>`,
+      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=12" />`,
+      `<script defer src="${assetBase}/image-sections.js?v=12"></script>`,
     ].join('\n');
   },
 
@@ -199,6 +235,10 @@ module.exports = {
 
           if (layout === 'grid') {
             return renderGrid(collection, items);
+          }
+
+          if (layout === 'news') {
+            return renderNews(collection, items);
           }
 
           return renderCards(collection, items);
