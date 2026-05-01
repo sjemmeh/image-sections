@@ -105,7 +105,39 @@
     if (e.key === 'ArrowRight') navigate(1);
   }
 
+  function initNewsScrollers() {
+    document.querySelectorAll('.is-layout-news').forEach(function (section) {
+      var scroll = section.querySelector('.is-news-scroll');
+      if (!scroll) return;
+
+      var nextBtn = document.createElement('button');
+      nextBtn.className = 'is-news-next';
+      nextBtn.setAttribute('aria-label', 'Volgende nieuwsberichten');
+      nextBtn.innerHTML = '&rsaquo;';
+      section.appendChild(nextBtn);
+
+      function scrollNext() {
+        var card = scroll.querySelector('.is-news-card');
+        var gap = parseFloat(getComputedStyle(scroll).gap) || 20;
+        var amount = card ? card.offsetWidth + gap : 300;
+        scroll.scrollBy({ left: amount, behavior: 'smooth' });
+      }
+
+      function updateBtn() {
+        var atEnd = scroll.scrollLeft + scroll.clientWidth >= scroll.scrollWidth - 4;
+        nextBtn.style.display = atEnd ? 'none' : '';
+      }
+
+      nextBtn.addEventListener('click', scrollNext);
+      scroll.addEventListener('scroll', updateBtn, { passive: true });
+      window.addEventListener('resize', updateBtn, { passive: true });
+      updateBtn();
+    });
+  }
+
   function init() {
+    initNewsScrollers();
+
     var sections = document.querySelectorAll('.is-has-lightbox');
 
     sections.forEach(function (section) {

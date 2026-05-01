@@ -188,6 +188,10 @@
 
 /* ----- News Layout ----- */
 
+.is-layout-news {
+  position: relative;
+}
+
 .is-layout-news .is-news-scroll {
   display: flex;
   gap: 1.25rem;
@@ -225,12 +229,8 @@
   aspect-ratio: 4 / 3;
   object-fit: cover;
   display: block;
-  transition: transform 0.3s ease;
 }
 
-.is-layout-news .is-news-card:hover .is-news-card-image img {
-  transform: scale(1.03);
-}
 
 .is-layout-news .is-news-card-body {
   padding: 1.25rem 1.25rem 1.5rem;
@@ -263,15 +263,46 @@
   opacity: 0.75;
 }
 
+.is-news-next {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0.25rem;
+  width: calc(29% - 0.9rem);
+  background: rgba(0, 0, 0, 0.45);
+  border: none;
+  border-radius: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 3rem;
+  line-height: 1;
+  transition: background 0.2s ease;
+}
+
+.is-news-next:hover {
+  background: rgba(0, 0, 0, 0.62);
+}
+
 @media (max-width: 1024px) {
   .is-layout-news .is-news-card {
     flex: 0 0 calc(44% - 0.625rem);
+  }
+
+  .is-news-next {
+    width: calc(44% - 0.625rem);
   }
 }
 
 @media (max-width: 640px) {
   .is-layout-news .is-news-card {
     flex: 0 0 calc(80% - 0.5rem);
+  }
+
+  .is-news-next {
+    width: calc(80% - 0.5rem);
   }
 }
 
