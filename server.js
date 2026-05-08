@@ -120,7 +120,7 @@ function renderCards(collection, items) {
   `;
 }
 
-function buildNewsItem(item, buttonText) {
+function buildNewsItem(item, buttonText, lightbox) {
   const imageUrl = escapeHtml(normalizePluginMediaUrl(item.value?.imageUrl));
   const title = escapeHtml(item.value?.title || '');
   const linkUrl = item.value?.linkUrl ? escapeHtml(item.value.linkUrl) : '';
@@ -130,8 +130,11 @@ function buildNewsItem(item, buttonText) {
     ? `<a href="${linkUrl}" class="is-news-card-link">${safeButtonText} ›</a>`
     : '';
 
+  const lbAttr = lightbox ? ' data-is-lightbox' : '';
+  const titleAttr = title ? ` data-is-title="${title}"` : '';
+
   return `
-    <div class="is-news-card">
+    <div class="is-news-card"${lbAttr}${titleAttr}>
       <div class="is-news-card-image">
         <img src="${imageUrl}" alt="${title}" loading="lazy" />
       </div>
@@ -144,11 +147,17 @@ function buildNewsItem(item, buttonText) {
 }
 
 function renderNews(collection, items) {
+  const lightbox = collection.lightbox === true || collection.lightbox === 'true';
   const buttonText = collection.buttonText || 'Lees het bericht';
-  const itemsHtml = items.map((item) => buildNewsItem(item, buttonText)).join('');
+  const itemsHtml = items.map((item) => buildNewsItem(item, buttonText, lightbox)).join('');
+  const classes = [
+    'is-section',
+    'is-layout-news',
+    lightbox ? 'is-has-lightbox' : '',
+  ].filter(Boolean).join(' ');
 
   return `
-    <div class="is-section is-layout-news">
+    <div class="${classes}">
       <div class="is-news-scroll">
         ${itemsHtml}
       </div>
@@ -188,8 +197,8 @@ module.exports = {
     const assetBase = `/api/plugins/${encodeURIComponent(pluginName)}/assets`;
 
     return [
-      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=14" />`,
-      `<script defer src="${assetBase}/image-sections.js?v=14"></script>`,
+      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=16" />`,
+      `<script defer src="${assetBase}/image-sections.js?v=16"></script>`,
     ].join('\n');
   },
 

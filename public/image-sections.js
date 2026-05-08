@@ -1,6 +1,6 @@
 /**
  * Image Sections Plugin – Public JavaScript
- * Provides lightbox functionality for grid layouts with lightbox enabled.
+ * Provides lightbox functionality for layouts with lightbox enabled.
  */
 (function () {
   'use strict';
@@ -129,6 +129,9 @@
       }
 
       function updateBtns() {
+        var isScrollable = scroll.scrollWidth > scroll.clientWidth + 4;
+        scroll.classList.toggle('is-news-scrollable', isScrollable);
+
         var atStart = scroll.scrollLeft <= 4;
         var atEnd = scroll.scrollLeft + scroll.clientWidth >= scroll.scrollWidth - 4;
         prevBtn.style.display = atStart ? 'none' : '';

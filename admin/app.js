@@ -158,7 +158,7 @@ function updateLayoutFields() {
   var gridTitleEnabled = layout === 'grid' && el.editShowTitle.checked;
   var isNews = layout === 'news';
 
-  el.lightboxGroup.style.display = isNews ? 'none' : '';
+  el.lightboxGroup.style.display = '';
   el.btnTextGroup.style.display = (layout === 'cards' || isNews) ? '' : 'none';
   // Per-item title is editable for cards/news always, and for grid when "show title" is enabled
   el.itemTitleGroup.style.display = (layout === 'cards' || isNews || gridTitleEnabled) ? '' : 'none';
