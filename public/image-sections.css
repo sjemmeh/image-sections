@@ -194,7 +194,7 @@
 
 .is-layout-news .is-news-scroll {
   display: flex;
-  justify-content: safe center;
+  justify-content: flex-start;
   gap: 1.25rem;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
@@ -204,8 +204,9 @@
   scrollbar-width: none;
 }
 
-.is-layout-news .is-news-scroll.is-news-scrollable {
-  justify-content: flex-start;
+.is-layout-news .is-news-scroll:not(.is-news-scrollable) {
+  justify-content: center;
+  overflow-x: hidden;
 }
 
 .is-layout-news .is-news-scroll::-webkit-scrollbar {
