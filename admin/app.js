@@ -503,7 +503,7 @@ async function addOrUpdateItem() {
     var imageUrl = urlInput;
     if (files.length > 0) {
       try {
-        imageUrl = await api.uploadFile(files[0]);
+        imageUrl = await api.uploadFile(await prepareFileForUpload(files[0]));
       } catch (err) {
         notify(err.message || 'Upload mislukt', true);
         return;
@@ -571,7 +571,7 @@ async function addOrUpdateItem() {
     var file = files[i];
     notify(`Uploaden ${i + 1}/${files.length}…`);
     try {
-      var uploadedUrl = await api.uploadFile(file);
+      var uploadedUrl = await api.uploadFile(await prepareFileForUpload(file));
       var itemTitle = files.length === 1 ? title : '';
       if (!itemTitle) itemTitle = filenameToTitle(file.name);
       var itemLink = files.length === 1 ? linkUrl : '';
