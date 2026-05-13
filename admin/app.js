@@ -76,6 +76,8 @@ const DELETE_ICON = '<span aria-hidden="true" style="font-size:14px;line-height:
 const ARROW_UP_ICON = '<span aria-hidden="true" style="font-size:14px;line-height:1;color:#d4d4d8;display:block;">&#9650;</span>';
 const ARROW_DOWN_ICON = '<span aria-hidden="true" style="font-size:14px;line-height:1;color:#d4d4d8;display:block;">&#9660;</span>';
 
+var CONVERTIBLE_TO_WEBP = new Set(['image/png', 'image/jpeg', 'image/gif']);
+
 function applyButtonClasses(root) {
   (root || document).querySelectorAll('button[data-btn]').forEach(function (btn) {
     var variant = btn.getAttribute('data-btn') || 'secondary';
@@ -133,6 +135,59 @@ function filenameToTitle(name) {
   var pretty = stem.replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (!pretty) return '';
   return pretty.charAt(0).toUpperCase() + pretty.slice(1);
+}
+
+/**
+ * Convert a raster image File to WebP using the Canvas API.
+ * Returns a new File with a .webp extension and type image/webp.
+ * @param {File} file
+ * @param {number} [quality=0.85]
+ * @returns {Promise<File>}
+ */
+function convertToWebp(file, quality) {
+  if (quality === undefined) quality = 0.85;
+  return new Promise(function (resolve, reject) {
+    var objectUrl = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      var canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob(
+        function (blob) {
+          URL.revokeObjectURL(objectUrl);
+          if (!blob) {
+            reject(new Error('Canvas WebP conversion failed'));
+            return;
+          }
+          var webpName = file.name.replace(/\.[^.]+$/, '') + '.webp';
+          resolve(new File([blob], webpName, { type: 'image/webp' }));
+        },
+        'image/webp',
+        quality,
+      );
+    };
+    img.onerror = function () {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Failed to load image for conversion'));
+    };
+    img.src = objectUrl;
+  });
+}
+
+/**
+ * Prepare a file for upload. Raster images (PNG, JPEG, GIF) are converted
+ * to WebP; SVG, WebP, and video files are returned as-is.
+ * @param {File} file
+ * @returns {Promise<File>}
+ */
+async function prepareFileForUpload(file) {
+  if (CONVERTIBLE_TO_WEBP.has(file.type)) {
+    return convertToWebp(file);
+  }
+  return file;
 }
 
 function isValidCssColor(value) {
