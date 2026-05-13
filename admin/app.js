@@ -139,41 +139,34 @@ function filenameToTitle(name) {
 
 /**
  * Convert a raster image File to WebP using the Canvas API.
- * Returns a new File with a .webp extension and type image/webp.
+ * Uses createImageBitmap() so no <img> element is needed, avoiding
+ * Content-Security-Policy img-src restrictions on blob: URLs.
  * @param {File} file
  * @param {number} [quality=0.85]
  * @returns {Promise<File>}
  */
-function convertToWebp(file, quality) {
+async function convertToWebp(file, quality) {
   if (quality === undefined) quality = 0.85;
+  var bitmap = await createImageBitmap(file);
+  var canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
   return new Promise(function (resolve, reject) {
-    var objectUrl = URL.createObjectURL(file);
-    var img = new Image();
-    img.onload = function () {
-      var canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      var ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      canvas.toBlob(
-        function (blob) {
-          URL.revokeObjectURL(objectUrl);
-          if (!blob) {
-            reject(new Error('Canvas WebP conversion failed'));
-            return;
-          }
-          var webpName = file.name.replace(/\.[^.]+$/, '') + '.webp';
-          resolve(new File([blob], webpName, { type: 'image/webp' }));
-        },
-        'image/webp',
-        quality,
-      );
-    };
-    img.onerror = function () {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error('Failed to load image for conversion'));
-    };
-    img.src = objectUrl;
+    canvas.toBlob(
+      function (blob) {
+        if (!blob) {
+          reject(new Error('Canvas WebP conversion failed'));
+          return;
+        }
+        var webpName = file.name.replace(/\.[^.]+$/, '') + '.webp';
+        resolve(new File([blob], webpName, { type: 'image/webp' }));
+      },
+      'image/webp',
+      quality,
+    );
   });
 }
 
