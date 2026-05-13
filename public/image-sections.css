@@ -204,6 +204,11 @@
   scrollbar-width: none;
 }
 
+.is-layout-news .is-news-scroll:not(.is-news-scrollable) {
+  justify-content: center;
+  overflow-x: hidden;
+}
+
 .is-layout-news .is-news-scroll::-webkit-scrollbar {
   display: none;
 }
