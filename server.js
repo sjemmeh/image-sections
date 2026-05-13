@@ -28,14 +28,36 @@ function normalizePluginMediaUrl(url) {
 }
 
 /**
- * Append a width query-param so sharp serves a resized copy.
- * SVG and ICO files are returned as-is (no pixel processing).
+ * Build a thumbnail URL for card/grid/news display.
+ *
+ * - Main CMS images  (/images/filename):  /images/800/0/filename  (path-based sharp)
+ * - Plugin uploads   (/api/plugins/…):    append ?w=800            (query-param sharp)
+ * - SVG / ICO:                            returned as-is
  */
-function resizeUrl(url, width) {
+function buildThumbUrl(url) {
   if (!url) return url;
   if (/\.(svg|ico)(\?|$)/i.test(url)) return url;
+  if (url.startsWith('/images/')) {
+    const filename = url.slice('/images/'.length);
+    return `/images/800/0/${filename}`;
+  }
   const sep = url.includes('?') ? '&' : '?';
-  return `${url}${sep}w=${width}`;
+  return `${url}${sep}w=800`;
+}
+
+/**
+ * Build a full-resolution URL for the lightbox.
+ *
+ * - Main CMS images  (/images/filename):  /images/0/0/filename    (no resize)
+ * - Plugin uploads:                        returned as-is (original)
+ */
+function buildFullUrl(url) {
+  if (!url) return url;
+  if (url.startsWith('/images/')) {
+    const filename = url.slice('/images/'.length);
+    return `/images/0/0/${filename}`;
+  }
+  return url;
 }
 
 function sortByOrder(a, b) {
@@ -47,8 +69,8 @@ function sortByOrder(a, b) {
 
 function buildCardItem(item, lightbox, bgColor, buttonText) {
   const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
-  const thumbUrl = escapeHtml(resizeUrl(rawUrl, 800));
-  const fullUrl = escapeHtml(rawUrl);
+  const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
+  const fullUrl = escapeHtml(buildFullUrl(rawUrl));
   const title = escapeHtml(item.value?.title || '');
   const linkUrl = item.value?.linkUrl ? escapeHtml(item.value.linkUrl) : '';
   const safeButtonText = escapeHtml(buttonText || 'Bekijk project');
@@ -89,8 +111,8 @@ function sanitizeCssColor(value) {
 
 function buildGridItem(item, lightbox, showTitle, bgColor) {
   const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
-  const thumbUrl = escapeHtml(resizeUrl(rawUrl, 800));
-  const fullUrl = escapeHtml(rawUrl);
+  const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
+  const fullUrl = escapeHtml(buildFullUrl(rawUrl));
   const title = escapeHtml(item.value?.title || '');
 
   const captionHtml = showTitle && title
@@ -137,8 +159,8 @@ function renderCards(collection, items) {
 
 function buildNewsItem(item, buttonText, lightbox) {
   const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
-  const thumbUrl = escapeHtml(resizeUrl(rawUrl, 800));
-  const fullUrl = escapeHtml(rawUrl);
+  const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
+  const fullUrl = escapeHtml(buildFullUrl(rawUrl));
   const title = escapeHtml(item.value?.title || '');
   const linkUrl = item.value?.linkUrl ? escapeHtml(item.value.linkUrl) : '';
   const safeButtonText = escapeHtml(buttonText || 'Lees het bericht');
