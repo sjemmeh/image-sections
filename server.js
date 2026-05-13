@@ -27,6 +27,17 @@ function normalizePluginMediaUrl(url) {
   return normalized;
 }
 
+/**
+ * Append a width query-param so sharp serves a resized copy.
+ * SVG and ICO files are returned as-is (no pixel processing).
+ */
+function resizeUrl(url, width) {
+  if (!url) return url;
+  if (/\.(svg|ico)(\?|$)/i.test(url)) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}w=${width}`;
+}
+
 function sortByOrder(a, b) {
   const orderA = Number(a?.value?.sortOrder ?? 9999);
   const orderB = Number(b?.value?.sortOrder ?? 9999);
@@ -35,7 +46,9 @@ function sortByOrder(a, b) {
 }
 
 function buildCardItem(item, lightbox, bgColor, buttonText) {
-  const imageUrl = escapeHtml(normalizePluginMediaUrl(item.value?.imageUrl));
+  const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
+  const thumbUrl = escapeHtml(resizeUrl(rawUrl, 800));
+  const fullUrl = escapeHtml(rawUrl);
   const title = escapeHtml(item.value?.title || '');
   const linkUrl = item.value?.linkUrl ? escapeHtml(item.value.linkUrl) : '';
   const safeButtonText = escapeHtml(buttonText || 'Bekijk project');
@@ -45,7 +58,7 @@ function buildCardItem(item, lightbox, bgColor, buttonText) {
     buttonHtml = `<a href="${linkUrl}" class="is-card-btn">${safeButtonText}</a>`;
   }
 
-  const lbAttr = lightbox ? ' data-is-lightbox' : '';
+  const lbAttr = lightbox ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
   const cardClass = linkUrl ? 'is-card is-card--has-btn' : 'is-card';
   const styleAttr = bgColor ? ` style="background-color: ${bgColor}"` : '';
   const titleAttr = title ? ` data-is-title="${title}"` : '';
@@ -53,7 +66,7 @@ function buildCardItem(item, lightbox, bgColor, buttonText) {
   return `
     <div class="${cardClass}"${lbAttr}${titleAttr}${styleAttr}>
       <div class="is-card-image">
-        <img src="${imageUrl}" alt="${title}" loading="lazy" />
+        <img src="${thumbUrl}" alt="${title}" loading="lazy" />
       </div>
       <div class="is-card-footer">
         <span class="is-card-title">${title}</span>
@@ -75,20 +88,22 @@ function sanitizeCssColor(value) {
 }
 
 function buildGridItem(item, lightbox, showTitle, bgColor) {
-  const imageUrl = escapeHtml(normalizePluginMediaUrl(item.value?.imageUrl));
+  const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
+  const thumbUrl = escapeHtml(resizeUrl(rawUrl, 800));
+  const fullUrl = escapeHtml(rawUrl);
   const title = escapeHtml(item.value?.title || '');
 
   const captionHtml = showTitle && title
     ? `<span class="is-grid-caption">${title}</span>`
     : '';
 
-  const lbAttr = lightbox ? ' data-is-lightbox' : '';
+  const lbAttr = lightbox ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
   const styleAttr = bgColor ? ` style="background-color: ${bgColor}"` : '';
   const titleAttr = title ? ` data-is-title="${title}"` : '';
 
   return `
     <div class="is-grid-item"${lbAttr}${titleAttr}${styleAttr}>
-      <img src="${imageUrl}" alt="${title}" loading="lazy" />
+      <img src="${thumbUrl}" alt="${title}" loading="lazy" />
       ${captionHtml}
     </div>
   `;
@@ -121,7 +136,9 @@ function renderCards(collection, items) {
 }
 
 function buildNewsItem(item, buttonText, lightbox) {
-  const imageUrl = escapeHtml(normalizePluginMediaUrl(item.value?.imageUrl));
+  const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
+  const thumbUrl = escapeHtml(resizeUrl(rawUrl, 800));
+  const fullUrl = escapeHtml(rawUrl);
   const title = escapeHtml(item.value?.title || '');
   const linkUrl = item.value?.linkUrl ? escapeHtml(item.value.linkUrl) : '';
   const safeButtonText = escapeHtml(buttonText || 'Lees het bericht');
@@ -130,13 +147,13 @@ function buildNewsItem(item, buttonText, lightbox) {
     ? `<a href="${linkUrl}" class="is-news-card-link">${safeButtonText} ›</a>`
     : '';
 
-  const lbAttr = lightbox ? ' data-is-lightbox' : '';
+  const lbAttr = lightbox ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
   const titleAttr = title ? ` data-is-title="${title}"` : '';
 
   return `
     <div class="is-news-card"${lbAttr}${titleAttr}>
       <div class="is-news-card-image">
-        <img src="${imageUrl}" alt="${title}" loading="lazy" />
+        <img src="${thumbUrl}" alt="${title}" loading="lazy" />
       </div>
       <div class="is-news-card-body">
         <span class="is-news-card-title">${title}</span>
@@ -197,8 +214,8 @@ module.exports = {
     const assetBase = `/api/plugins/${encodeURIComponent(pluginName)}/assets`;
 
     return [
-      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=16" />`,
-      `<script defer src="${assetBase}/image-sections.js?v=16"></script>`,
+      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=17" />`,
+      `<script defer src="${assetBase}/image-sections.js?v=17"></script>`,
     ].join('\n');
   },
 
