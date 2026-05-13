@@ -169,7 +169,8 @@
             var img = gi.querySelector('img');
             if (img) {
               var title = gi.getAttribute('data-is-title') || img.alt || '';
-              items.push({ src: img.src, alt: img.alt || '', title: title });
+              var src = gi.getAttribute('data-is-full-src') || img.src;
+              items.push({ src: src, alt: img.alt || '', title: title });
             }
           });
           open(items, index);
