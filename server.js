@@ -94,11 +94,40 @@ function animateAttr(idx) {
   return delay === 0 ? ' data-animate' : ` data-animate data-animate-delay="${delay}"`;
 }
 
+/**
+ * Resolve the alt attribute for an item. Prefer the explicit altText
+ * field (set in the admin) over the title — alt and title serve
+ * different a11y purposes, but pre-enrichment items only have title,
+ * so fall back to it for backwards compatibility.
+ */
+function resolveAlt(item) {
+  const explicit = item.value?.altText;
+  if (typeof explicit === 'string' && explicit.trim()) return explicit;
+  return item.value?.title || '';
+}
+
+/**
+ * Format an ISO date string for display. Empty / unparseable inputs return
+ * '' so the template can drop the slot. Uses the host's default locale.
+ */
+function formatItemDate(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  try {
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch (_err) {
+    return d.toISOString().slice(0, 10);
+  }
+}
+
 function buildCardItem(item, lightbox, bgColor, buttonText, idx) {
   const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
   const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
   const fullUrl = escapeHtml(buildFullUrl(rawUrl));
   const title = escapeHtml(item.value?.title || '');
+  const altText = escapeHtml(resolveAlt(item));
+  const caption = escapeHtml(item.value?.caption || '');
   const linkUrl = item.value?.linkUrl ? escapeHtml(item.value.linkUrl) : '';
   const safeButtonText = escapeHtml(buttonText || 'Bekijk project');
 
@@ -107,18 +136,24 @@ function buildCardItem(item, lightbox, bgColor, buttonText, idx) {
     buttonHtml = `<a href="${linkUrl}" class="is-card-btn">${safeButtonText}</a>`;
   }
 
+  const captionHtml = caption ? `<span class="is-card-caption">${caption}</span>` : '';
+
   const lbAttr = lightbox ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
   const cardClass = linkUrl ? 'is-card is-card--has-btn' : 'is-card';
   const styleAttr = bgColor ? ` style="background-color: ${bgColor}"` : '';
   const titleAttr = title ? ` data-is-title="${title}"` : '';
+  const captionAttr = caption ? ` data-is-caption="${caption}"` : '';
 
   return `
-    <div class="${cardClass}"${lbAttr}${titleAttr}${styleAttr}${animateAttr(idx)}>
+    <div class="${cardClass}"${lbAttr}${titleAttr}${captionAttr}${styleAttr}${animateAttr(idx)}>
       <div class="is-card-image">
-        <img src="${thumbUrl}" alt="${title}" loading="lazy" />
+        <img src="${thumbUrl}" alt="${altText}" loading="lazy" />
       </div>
       <div class="is-card-footer">
-        <span class="is-card-title">${title}</span>
+        <div class="is-card-text">
+          <span class="is-card-title">${title}</span>
+          ${captionHtml}
+        </div>
         ${buttonHtml}
       </div>
     </div>
@@ -141,6 +176,8 @@ function buildGridItem(item, lightbox, showTitle, bgColor, idx) {
   const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
   const fullUrl = escapeHtml(buildFullUrl(rawUrl));
   const title = escapeHtml(item.value?.title || '');
+  const altText = escapeHtml(resolveAlt(item));
+  const caption = escapeHtml(item.value?.caption || '');
 
   const captionHtml = showTitle && title
     ? `<span class="is-grid-caption">${title}</span>`
@@ -149,10 +186,11 @@ function buildGridItem(item, lightbox, showTitle, bgColor, idx) {
   const lbAttr = lightbox ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
   const styleAttr = bgColor ? ` style="background-color: ${bgColor}"` : '';
   const titleAttr = title ? ` data-is-title="${title}"` : '';
+  const captionAttr = caption ? ` data-is-caption="${caption}"` : '';
 
   return `
-    <div class="is-grid-item"${lbAttr}${titleAttr}${styleAttr}${animateAttr(idx)}>
-      <img src="${thumbUrl}" alt="${title}" loading="lazy" />
+    <div class="is-grid-item"${lbAttr}${titleAttr}${captionAttr}${styleAttr}${animateAttr(idx)}>
+      <img src="${thumbUrl}" alt="${altText}" loading="lazy" />
       ${captionHtml}
     </div>
   `;
@@ -189,6 +227,11 @@ function buildNewsItem(item, buttonText, lightbox, idx) {
   const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
   const fullUrl = escapeHtml(buildFullUrl(rawUrl));
   const title = escapeHtml(item.value?.title || '');
+  const altText = escapeHtml(resolveAlt(item));
+  const caption = escapeHtml(item.value?.caption || '');
+  const date = formatItemDate(item.value?.date);
+  const dateHtml = date ? `<time class="is-news-card-date" datetime="${escapeHtml(item.value?.date || '')}">${escapeHtml(date)}</time>` : '';
+  const captionHtml = caption ? `<p class="is-news-card-caption">${caption}</p>` : '';
   const linkUrl = item.value?.linkUrl ? escapeHtml(item.value.linkUrl) : '';
   const safeButtonText = escapeHtml(buttonText || 'Lees het bericht');
 
@@ -198,14 +241,17 @@ function buildNewsItem(item, buttonText, lightbox, idx) {
 
   const lbAttr = lightbox ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
   const titleAttr = title ? ` data-is-title="${title}"` : '';
+  const captionAttr = caption ? ` data-is-caption="${caption}"` : '';
 
   return `
-    <div class="is-news-card"${lbAttr}${titleAttr}${animateAttr(idx)}>
+    <div class="is-news-card"${lbAttr}${titleAttr}${captionAttr}${animateAttr(idx)}>
       <div class="is-news-card-image">
-        <img src="${thumbUrl}" alt="${title}" loading="lazy" />
+        <img src="${thumbUrl}" alt="${altText}" loading="lazy" />
       </div>
       <div class="is-news-card-body">
+        ${dateHtml}
         <span class="is-news-card-title">${title}</span>
+        ${captionHtml}
         ${linkHtml}
       </div>
     </div>

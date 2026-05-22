@@ -77,10 +77,25 @@
     el.src = item.src;
     el.alt = item.alt || '';
 
-    var caption = overlay.querySelector('.is-lightbox-caption');
+    var captionEl = overlay.querySelector('.is-lightbox-caption');
     var title = (item.title || item.alt || '').trim();
-    caption.textContent = title;
-    caption.style.display = title ? '' : 'none';
+    var sub = (item.caption || '').trim();
+    // Lightbox caption shows the title prominently; subtitle (if any) renders
+    // below in a lighter weight so screen readers announce both via aria-live.
+    captionEl.innerHTML = '';
+    if (title) {
+      var t = document.createElement('span');
+      t.className = 'is-lightbox-caption-title';
+      t.textContent = title;
+      captionEl.appendChild(t);
+    }
+    if (sub) {
+      var s = document.createElement('span');
+      s.className = 'is-lightbox-caption-sub';
+      s.textContent = sub;
+      captionEl.appendChild(s);
+    }
+    captionEl.style.display = (title || sub) ? '' : 'none';
 
     var prevBtn = overlay.querySelector('.is-lightbox-prev');
     var nextBtn = overlay.querySelector('.is-lightbox-next');
@@ -241,8 +256,9 @@
             var img = gi.querySelector('img');
             if (img) {
               var title = gi.getAttribute('data-is-title') || img.alt || '';
+              var caption = gi.getAttribute('data-is-caption') || '';
               var src = gi.getAttribute('data-is-full-src') || img.src;
-              items.push({ src: src, alt: img.alt || '', title: title });
+              items.push({ src: src, alt: img.alt || '', title: title, caption: caption });
             }
           });
           open(items, index, gridItem);
