@@ -16,6 +16,7 @@ const state = {
   pendingFiles: [],
   feedbackTimer: null,
   pendingConfirm: null,
+  draggedItemKey: null,
 };
 
 const el = {
@@ -86,6 +87,10 @@ const ICON = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
   copy:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  grip:
+    '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>',
+  close:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>',
 };
 
 function shortcodeFor(slug) {
@@ -548,6 +553,101 @@ async function loadItems() {
   renderItemsList();
 }
 
+// ---- Drag-and-drop reordering ----
+
+function clearDropIndicators() {
+  el.itemsList.querySelectorAll('[data-is-row]').forEach(function (row) {
+    row.style.boxShadow = '';
+  });
+}
+
+function rowAtDragPoint(e) {
+  return e.target.closest('[data-is-row]');
+}
+
+function dropPosition(row, e) {
+  var rect = row.getBoundingClientRect();
+  return (e.clientY - rect.top) < rect.height / 2 ? 'before' : 'after';
+}
+
+async function persistOrder(orderedKeys) {
+  // Rewrite sortOrder for every item according to the new visual order.
+  // Persisting all keeps integers dense (0..N-1) and avoids float math.
+  var writes = orderedKeys.map(function (key, idx) {
+    var record = state.items.find(function (r) { return r.key === key; });
+    if (!record) return null;
+    return api.upsertDataRecord(SCOPES.items, key, {
+      ...record.value,
+      sortOrder: idx,
+    });
+  }).filter(Boolean);
+  await Promise.all(writes);
+  await loadItems();
+}
+
+async function handleDrop(draggedKey, targetKey, position) {
+  if (!draggedKey || !targetKey || draggedKey === targetKey) return;
+
+  var currentOrder = state.items.map(function (r) { return r.key; });
+  var fromIdx = currentOrder.indexOf(draggedKey);
+  var toIdx = currentOrder.indexOf(targetKey);
+  if (fromIdx < 0 || toIdx < 0) return;
+
+  currentOrder.splice(fromIdx, 1);
+  // Recompute target index after removal
+  var newToIdx = currentOrder.indexOf(targetKey);
+  var insertAt = position === 'before' ? newToIdx : newToIdx + 1;
+  currentOrder.splice(insertAt, 0, draggedKey);
+
+  try {
+    await persistOrder(currentOrder);
+  } catch (err) {
+    notify(err.message || 'Volgorde wijzigen mislukt', 'error');
+  }
+}
+
+// ---- Image preview modal ----
+
+function openImagePreview(imageUrl, title) {
+  if (!imageUrl) return;
+  var existing = document.getElementById('is-preview-modal');
+  if (existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'is-preview-modal';
+  overlay.className = 'modal-overlay';
+  overlay.style.display = 'flex';
+  overlay.innerHTML =
+    '<div class="modal lg" style="background:var(--bg-dim); padding:0;">' +
+    '<div class="modal-head" style="border-bottom:1px solid var(--hairline);">' +
+    '<div>' +
+    '<h2 class="m-title">Voorbeeld' + (title ? ' &mdash; <em>' + esc(title) + '</em>' : '') + '</h2>' +
+    '</div>' +
+    '<button class="modal-close" type="button" aria-label="Sluiten">' + ICON.close + '</button>' +
+    '</div>' +
+    '<div style="padding:24px; display:flex; align-items:center; justify-content:center; background:var(--bg);">' +
+    '<img src="' + esc(imageUrl) + '" alt="' + esc(title || '') + '" style="max-width:100%; max-height:70vh; display:block; border-radius:8px;" />' +
+    '</div>' +
+    '</div>';
+
+  var closeBtn = overlay.querySelector('.modal-close');
+  function closePreview() {
+    overlay.remove();
+    document.removeEventListener('keydown', onKey);
+  }
+  function onKey(e) {
+    if (e.key === 'Escape') closePreview();
+  }
+  closeBtn.addEventListener('click', closePreview);
+  overlay.addEventListener('click', function (e) {
+    if (e.target === overlay) closePreview();
+  });
+  document.addEventListener('keydown', onKey);
+
+  document.body.appendChild(overlay);
+  closeBtn.focus();
+}
+
 function renderItemsList() {
   el.itemsList.innerHTML = '';
 
@@ -570,19 +670,27 @@ function renderItemsList() {
 
     var row = document.createElement('div');
     row.className = 'list-row';
+    row.draggable = true;
+    row.dataset.isRow = '1';
+    row.dataset.itemKey = record.key;
     row.style.background = 'var(--surface)';
     row.style.border = '1px solid var(--hairline)';
     row.style.borderRadius = '12px';
     row.style.padding = '12px 14px';
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '14px';
+    row.style.transition = 'box-shadow 0.12s ease, opacity 0.12s ease';
 
     var thumbInner = previewUrl
       ? '<div style="width:100%; height:100%; background-image:url(' + esc(previewUrl) + '); background-size:cover; background-position:center;"></div>'
       : '<div style="width:100%; height:100%; display:grid; place-items:center; color:var(--text-4);">' + ICON.image + '</div>';
 
     row.innerHTML =
-      '<div style="width:64px; height:48px; flex-shrink:0; border-radius:8px; overflow:hidden; background:var(--bg-dim); border:1px solid var(--hairline);">' +
+      '<button type="button" class="act" data-action="drag-handle" title="Sleep om te herordenen" aria-label="Sleep om te herordenen" style="cursor:grab; touch-action:none;">' + ICON.grip + '</button>' +
+      '<button type="button" data-action="preview" title="Voorbeeld" aria-label="Voorbeeld" style="width:64px; height:48px; flex-shrink:0; border-radius:8px; overflow:hidden; background:var(--bg-dim); border:1px solid var(--hairline); padding:0; cursor:' + (previewUrl ? 'zoom-in' : 'default') + ';">' +
       thumbInner +
-      '</div>' +
+      '</button>' +
       '<div class="body" style="min-width:0; flex:1;">' +
       '<div class="title-line" style="margin-bottom:4px;">' +
       '<span class="t" style="font-family:var(--sans); font-size:14px; color:var(--text); font-style:' + (title ? 'normal' : 'italic') + ';">' +
@@ -600,10 +708,56 @@ function renderItemsList() {
       '<button class="act danger" data-action="delete" title="Verwijderen" aria-label="Verwijderen">' + ICON.trash + '</button>' +
       '</div>';
 
-    // Override list-row's default layout (which uses .num) to be a flex row instead.
-    row.style.display = 'flex';
-    row.style.alignItems = 'center';
-    row.style.gap = '14px';
+    // Drag handle visual state (grab/grabbing cursor only — the whole row is draggable).
+    var dragHandle = row.querySelector('[data-action="drag-handle"]');
+
+    row.addEventListener('dragstart', function (e) {
+      state.draggedItemKey = record.key;
+      row.style.opacity = '0.4';
+      if (dragHandle) dragHandle.style.cursor = 'grabbing';
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        // Required for Firefox to actually start the drag.
+        try { e.dataTransfer.setData('text/plain', record.key); } catch (_err) {}
+      }
+    });
+    row.addEventListener('dragend', function () {
+      state.draggedItemKey = null;
+      row.style.opacity = '';
+      if (dragHandle) dragHandle.style.cursor = 'grab';
+      clearDropIndicators();
+    });
+    row.addEventListener('dragover', function (e) {
+      if (!state.draggedItemKey || state.draggedItemKey === record.key) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      var pos = dropPosition(row, e);
+      // Inset shadow indicates drop edge (top for "before", bottom for "after").
+      row.style.boxShadow = pos === 'before'
+        ? 'inset 0 2px 0 0 var(--accent-2)'
+        : 'inset 0 -2px 0 0 var(--accent-2)';
+    });
+    row.addEventListener('dragleave', function () {
+      row.style.boxShadow = '';
+    });
+    row.addEventListener('drop', function (e) {
+      e.preventDefault();
+      var pos = dropPosition(row, e);
+      var draggedKey = state.draggedItemKey;
+      clearDropIndicators();
+      if (draggedKey && draggedKey !== record.key) {
+        void handleDrop(draggedKey, record.key, pos);
+      }
+    });
+
+    // Preview button → modal
+    var previewBtn = row.querySelector('[data-action="preview"]');
+    if (previewBtn) {
+      previewBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (previewUrl) openImagePreview(previewUrl, title);
+      });
+    }
 
     var upBtn = row.querySelector('[data-action="up"]');
     var downBtn = row.querySelector('[data-action="down"]');
