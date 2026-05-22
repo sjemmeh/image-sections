@@ -3,6 +3,348 @@ import { createPluginAdminClient } from './plugin-admin-client.js';
 const PLUGIN_NAME = 'image-sections';
 const api = createPluginAdminClient(PLUGIN_NAME);
 
+// ---- i18n ----
+// Reads from `document.documentElement.lang` which the main admin shell
+// keeps in sync with the user's active i18next language. Defaults to
+// Dutch (the historical baseline) when lang is unknown or unset.
+const LOCALES = {
+  nl: {
+    'eyebrow.plugin': 'Plugins · Image Sections',
+    'page.collections.title': 'Afbeeldings|collecties',
+    'page.collections.lede': 'Maak herbruikbare afbeeldingscollecties en gebruik ze in pagina‑inhoud via de shortcode.',
+    'page.editor.title': '|bewerken',
+    'section.newCollection.title': 'Nieuwe collectie',
+    'section.newCollection.desc': 'Vul een naam in — de slug wordt automatisch gegenereerd — en kies een layout.',
+    'section.settings.title': 'Instellingen',
+    'section.settings.desc': 'Bepaal hoe deze collectie wordt weergegeven op de website.',
+    'section.images.title': 'Afbeeldingen',
+    'section.images.desc': 'Sleep meerdere bestanden tegelijk of voer een externe URL in.',
+    'section.bin.title': 'Onlangs |verwijderd',
+    'section.bin.desc': 'Verwijderde afbeeldingen worden hier 30 dagen bewaard. Daarna verdwijnen ze definitief.',
+    'card.collections.title': 'Collecties',
+    'card.collections.sub': 'Klik op een collectie om te bewerken.',
+    'empty.collections.title': 'Nog geen collecties',
+    'empty.collections.sub': 'Maak hierboven je eerste collectie aan om te beginnen.',
+    'empty.results.title': 'Geen resultaten',
+    'empty.results.sub': 'Pas je zoekopdracht aan of maak een nieuwe collectie aan.',
+    'empty.items.title': 'Nog geen afbeeldingen',
+    'empty.items.sub': 'Sleep bestanden of voeg een URL toe om te beginnen.',
+    'label.name': 'NAAM',
+    'label.slug': 'SLUG',
+    'label.slug.hint': 'URL-veilige identifier',
+    'label.layout': 'LAYOUT',
+    'label.columns': 'KOLOMMEN',
+    'label.lightbox': 'LIGHTBOX',
+    'label.titlePosition': 'TITELPOSITIE',
+    'label.titleAlign': 'UITLIJNING TITEL',
+    'label.showTitle': 'TITEL TONEN',
+    'label.buttonText': 'KNOPTEKST',
+    'label.bgColor': 'ACHTERGRONDKLEUR',
+    'label.bgColor.hint': 'Laat leeg voor een transparante achtergrond.',
+    'label.url': 'OF EXTERNE URL',
+    'label.title': 'TITEL',
+    'label.linkUrl': 'LINK URL',
+    'label.filter': 'FILTER',
+    'option.layout.cards': 'Kaarten — titel + knop',
+    'option.layout.grid': 'Galerij grid',
+    'option.layout.news': 'Nieuws — horizontaal scrollend',
+    'option.layout.cards.short': 'Kaarten',
+    'option.layout.grid.short': 'Galerij grid',
+    'option.layout.news.short': 'Nieuws',
+    'option.titlePos.below': 'Onder afbeelding',
+    'option.titlePos.above': 'Boven afbeelding',
+    'option.titleAlign.left': 'Links',
+    'option.titleAlign.center': 'Midden',
+    'option.titleAlign.right': 'Rechts',
+    'toggle.lightbox.title': 'Inschakelen',
+    'toggle.lightbox.desc': 'Klik op een afbeelding om uit te vergroten',
+    'toggle.showTitle.title': 'Toon bestandsnaam',
+    'toggle.showTitle.desc': 'Onder elke afbeelding in het grid',
+    'placeholder.colName': 'Bijv. Projecten',
+    'placeholder.colSlug': 'bijv. projecten',
+    'placeholder.bgColor': '#rrggbb of leeg = transparant',
+    'placeholder.btnText': 'Bekijk project',
+    'placeholder.url': 'https://...',
+    'placeholder.title': 'Titel (optioneel bij meerdere bestanden)',
+    'placeholder.search': 'Zoek collectie…',
+    'btn.create': 'Collectie aanmaken',
+    'btn.save': 'Instellingen opslaan',
+    'btn.back': 'Terug naar collecties',
+    'btn.transparent': 'Transparant',
+    'btn.cancel': 'Annuleren',
+    'btn.delete': 'Verwijderen',
+    'btn.addImage': 'Afbeelding toevoegen',
+    'btn.updateImage': 'Bijwerken',
+    'btn.emptyBin': 'Prullenbak legen',
+    'btn.confirm.delete': 'Verwijderen',
+    'upload.title': 'Sleep afbeeldingen hierheen',
+    'upload.sub': 'of klik om te kiezen — meerdere bestanden toegestaan',
+    'modal.confirm.title': 'Bevestig |verwijdering',
+    'modal.confirm.text': 'Dit kan niet ongedaan worden gemaakt.',
+    'modal.preview.title': 'Voorbeeld',
+    'pill.unused': 'Ongebruikt',
+    'pill.usedOne': 'Gebruikt op 1 pagina',
+    'pill.usedMany': 'Gebruikt op {n} pagina\'s',
+    'pill.unused.title': 'Geen pagina\'s gebruiken deze collectie',
+    'pill.published': 'gepubliceerd',
+    'pill.draft': 'concept',
+    'meta.referencedOn': 'Deze collectie wordt nog gebruikt op:',
+    'meta.link.label': 'Link:',
+    'meta.noLink': 'Geen link',
+    'meta.shortcode.label': 'Shortcode:',
+    'meta.deleted.suffix': 'Verwijderd ',
+    'aria.copyShortcode': 'Shortcode kopiëren',
+    'aria.edit': 'Bewerken',
+    'aria.delete': 'Verwijderen',
+    'aria.up': 'Omhoog',
+    'aria.down': 'Omlaag',
+    'aria.drag': 'Sleep om te herordenen',
+    'aria.preview': 'Voorbeeld',
+    'aria.close': 'Sluiten',
+    'aria.restore': 'Terugzetten',
+    'aria.purge': 'Definitief verwijderen',
+    'aria.bgColor': 'Kies een kleur',
+    'msg.created': 'Collectie aangemaakt',
+    'msg.deletedCollection': 'Collectie verwijderd',
+    'msg.saved': 'Instellingen opgeslagen',
+    'msg.imageAdded': 'Afbeelding toegevoegd',
+    'msg.imageUpdated': 'Afbeelding bijgewerkt',
+    'msg.imageDeleted': 'Afbeelding verplaatst naar prullenbak',
+    'msg.imagesAdded': '{n} afbeeldingen toegevoegd',
+    'msg.partialSuccess': '{ok} toegevoegd, {failed} mislukt',
+    'msg.uploading': 'Uploaden {i}/{total}…',
+    'msg.shortcodeCopied': 'Shortcode gekopieerd',
+    'msg.copyFailed': 'Kopiëren mislukt',
+    'msg.restored': 'Afbeelding teruggezet',
+    'msg.purged': 'Definitief verwijderd',
+    'msg.binEmptied': 'Prullenbak geleegd',
+    'msg.requireNameSlug': 'Vul een naam en slug in',
+    'msg.slugExists': 'Een collectie met deze slug bestaat al',
+    'msg.requireFileOrUrl': 'Selecteer een bestand of vul een URL in',
+    'msg.requireDropOrUrl': 'Sleep bestanden of vul een URL in',
+    'msg.invalidColor': 'Ongeldige achtergrondkleur (gebruik #hex)',
+    'msg.createFailed': 'Aanmaken mislukt',
+    'msg.deleteFailed': 'Verwijderen mislukt',
+    'msg.uploadFailed': 'Upload mislukt',
+    'msg.saveFailed': 'Opslaan mislukt',
+    'msg.reorderFailed': 'Volgorde wijzigen mislukt',
+    'msg.restoreFailed': 'Terugzetten mislukt',
+    'msg.purgeFailed': 'Verwijderen mislukt',
+    'msg.emptyBinFailed': 'Leegmaken mislukt',
+    'msg.restoreCorrupt': 'Kan niet terugzetten — record beschadigd',
+    'msg.initFailed': 'Plugin admin laden mislukt',
+    'confirm.deleteCollection': 'Collectie "{name}" en alle afbeeldingen verwijderen?',
+    'confirm.deleteItem': 'Deze afbeelding verplaatsen naar de prullenbak? Je kunt hem 30 dagen terugzetten.',
+    'confirm.purgeItem': 'Deze afbeelding definitief verwijderen?',
+    'confirm.emptyBin': 'Prullenbak voor deze collectie definitief leegmaken?',
+    'time.justNow': 'zojuist',
+    'time.minutes': '{n} min geleden',
+    'time.hours': '{n} uur geleden',
+    'time.day': '{n} dag geleden',
+    'time.days': '{n} dagen geleden',
+    'time.over30': 'meer dan 30 dagen geleden',
+    'placeholder.colTitle': 'Geen titel',
+  },
+  en: {
+    'eyebrow.plugin': 'Plugins · Image Sections',
+    'page.collections.title': 'Image |collections',
+    'page.collections.lede': 'Create reusable image collections and embed them in page content via the shortcode.',
+    'page.editor.title': '|edit',
+    'section.newCollection.title': 'New collection',
+    'section.newCollection.desc': 'Enter a name — the slug is generated automatically — and pick a layout.',
+    'section.settings.title': 'Settings',
+    'section.settings.desc': 'Control how this collection appears on the site.',
+    'section.images.title': 'Images',
+    'section.images.desc': 'Drop multiple files at once or enter an external URL.',
+    'section.bin.title': 'Recently |deleted',
+    'section.bin.desc': 'Deleted images are kept here for 30 days. After that they are removed permanently.',
+    'card.collections.title': 'Collections',
+    'card.collections.sub': 'Click a collection to edit it.',
+    'empty.collections.title': 'No collections yet',
+    'empty.collections.sub': 'Create your first collection above to get started.',
+    'empty.results.title': 'No results',
+    'empty.results.sub': 'Refine your search or create a new collection.',
+    'empty.items.title': 'No images yet',
+    'empty.items.sub': 'Drop files or add a URL to get started.',
+    'label.name': 'NAME',
+    'label.slug': 'SLUG',
+    'label.slug.hint': 'URL-safe identifier',
+    'label.layout': 'LAYOUT',
+    'label.columns': 'COLUMNS',
+    'label.lightbox': 'LIGHTBOX',
+    'label.titlePosition': 'TITLE POSITION',
+    'label.titleAlign': 'TITLE ALIGNMENT',
+    'label.showTitle': 'SHOW TITLE',
+    'label.buttonText': 'BUTTON TEXT',
+    'label.bgColor': 'BACKGROUND COLOR',
+    'label.bgColor.hint': 'Leave empty for a transparent background.',
+    'label.url': 'OR EXTERNAL URL',
+    'label.title': 'TITLE',
+    'label.linkUrl': 'LINK URL',
+    'label.filter': 'FILTER',
+    'option.layout.cards': 'Cards — title + button',
+    'option.layout.grid': 'Gallery grid',
+    'option.layout.news': 'News — horizontal scroll',
+    'option.layout.cards.short': 'Cards',
+    'option.layout.grid.short': 'Gallery grid',
+    'option.layout.news.short': 'News',
+    'option.titlePos.below': 'Below image',
+    'option.titlePos.above': 'Above image',
+    'option.titleAlign.left': 'Left',
+    'option.titleAlign.center': 'Center',
+    'option.titleAlign.right': 'Right',
+    'toggle.lightbox.title': 'Enable',
+    'toggle.lightbox.desc': 'Click an image to view it enlarged',
+    'toggle.showTitle.title': 'Show filename',
+    'toggle.showTitle.desc': 'Under each image in the grid',
+    'placeholder.colName': 'e.g. Projects',
+    'placeholder.colSlug': 'e.g. projects',
+    'placeholder.bgColor': '#rrggbb or empty = transparent',
+    'placeholder.btnText': 'View project',
+    'placeholder.url': 'https://...',
+    'placeholder.title': 'Title (optional when multiple files)',
+    'placeholder.search': 'Search collection…',
+    'btn.create': 'Create collection',
+    'btn.save': 'Save settings',
+    'btn.back': 'Back to collections',
+    'btn.transparent': 'Transparent',
+    'btn.cancel': 'Cancel',
+    'btn.delete': 'Delete',
+    'btn.addImage': 'Add image',
+    'btn.updateImage': 'Update',
+    'btn.emptyBin': 'Empty bin',
+    'btn.confirm.delete': 'Delete',
+    'upload.title': 'Drop images here',
+    'upload.sub': 'or click to choose — multiple files allowed',
+    'modal.confirm.title': 'Confirm |deletion',
+    'modal.confirm.text': 'This cannot be undone.',
+    'modal.preview.title': 'Preview',
+    'pill.unused': 'Unused',
+    'pill.usedOne': 'Used on 1 page',
+    'pill.usedMany': 'Used on {n} pages',
+    'pill.unused.title': 'No pages reference this collection',
+    'pill.published': 'published',
+    'pill.draft': 'draft',
+    'meta.referencedOn': 'This collection is still referenced on:',
+    'meta.link.label': 'Link:',
+    'meta.noLink': 'No link',
+    'meta.shortcode.label': 'Shortcode:',
+    'meta.deleted.suffix': 'Deleted ',
+    'aria.copyShortcode': 'Copy shortcode',
+    'aria.edit': 'Edit',
+    'aria.delete': 'Delete',
+    'aria.up': 'Move up',
+    'aria.down': 'Move down',
+    'aria.drag': 'Drag to reorder',
+    'aria.preview': 'Preview',
+    'aria.close': 'Close',
+    'aria.restore': 'Restore',
+    'aria.purge': 'Delete permanently',
+    'aria.bgColor': 'Pick a color',
+    'msg.created': 'Collection created',
+    'msg.deletedCollection': 'Collection deleted',
+    'msg.saved': 'Settings saved',
+    'msg.imageAdded': 'Image added',
+    'msg.imageUpdated': 'Image updated',
+    'msg.imageDeleted': 'Image moved to bin',
+    'msg.imagesAdded': '{n} images added',
+    'msg.partialSuccess': '{ok} added, {failed} failed',
+    'msg.uploading': 'Uploading {i}/{total}…',
+    'msg.shortcodeCopied': 'Shortcode copied',
+    'msg.copyFailed': 'Copy failed',
+    'msg.restored': 'Image restored',
+    'msg.purged': 'Permanently deleted',
+    'msg.binEmptied': 'Bin emptied',
+    'msg.requireNameSlug': 'Enter a name and slug',
+    'msg.slugExists': 'A collection with this slug already exists',
+    'msg.requireFileOrUrl': 'Select a file or enter a URL',
+    'msg.requireDropOrUrl': 'Drop files or enter a URL',
+    'msg.invalidColor': 'Invalid background color (use #hex)',
+    'msg.createFailed': 'Create failed',
+    'msg.deleteFailed': 'Delete failed',
+    'msg.uploadFailed': 'Upload failed',
+    'msg.saveFailed': 'Save failed',
+    'msg.reorderFailed': 'Reorder failed',
+    'msg.restoreFailed': 'Restore failed',
+    'msg.purgeFailed': 'Delete failed',
+    'msg.emptyBinFailed': 'Empty failed',
+    'msg.restoreCorrupt': 'Cannot restore — record corrupt',
+    'msg.initFailed': 'Failed to load plugin admin',
+    'confirm.deleteCollection': 'Delete collection "{name}" and all images?',
+    'confirm.deleteItem': 'Move this image to the bin? You can restore it for 30 days.',
+    'confirm.purgeItem': 'Delete this image permanently?',
+    'confirm.emptyBin': 'Permanently empty the bin for this collection?',
+    'time.justNow': 'just now',
+    'time.minutes': '{n} min ago',
+    'time.hours': '{n} hr ago',
+    'time.day': '{n} day ago',
+    'time.days': '{n} days ago',
+    'time.over30': 'over 30 days ago',
+    'placeholder.colTitle': 'No title',
+  },
+};
+
+function activeLocale() {
+  var code = (document.documentElement.lang || 'nl').toLowerCase().slice(0, 2);
+  return LOCALES[code] ? code : 'nl';
+}
+
+/**
+ * Translate a key. Supports `{var}` interpolation. Two-segment keys like
+ * `'page.editor.title': '|edit'` represent strings where the part after the
+ * pipe is wrapped in <em> for the serif italic accent — emitted by
+ * tEmphasised() and used in headers and modal titles.
+ */
+function t(key, vars) {
+  var dict = LOCALES[activeLocale()] || LOCALES.nl;
+  var raw = dict[key];
+  if (raw == null) raw = (LOCALES.nl[key] != null ? LOCALES.nl[key] : key);
+  if (!vars) return raw;
+  return raw.replace(/\{(\w+)\}/g, function (_m, name) {
+    return vars[name] != null ? String(vars[name]) : '{' + name + '}';
+  });
+}
+
+/**
+ * Render a string with a `|`-separated emphasised tail (Wraps the second
+ * part in <em>). Returns an HTML string — caller is responsible for
+ * making sure the surrounding context is safe to inject HTML into.
+ */
+function tEmphasised(key, vars) {
+  var raw = t(key, vars);
+  var idx = raw.indexOf('|');
+  if (idx < 0) return esc(raw);
+  var head = raw.slice(0, idx);
+  var tail = raw.slice(idx + 1);
+  return esc(head) + '<em>' + esc(tail) + '</em>';
+}
+
+/**
+ * Walk DOM nodes carrying data-i18n* attributes and replace their
+ * text / attribute values from the active dictionary. Safe to call
+ * repeatedly — already-translated nodes are simply rewritten.
+ */
+function applyI18n(root) {
+  var scope = root || document;
+  scope.querySelectorAll('[data-i18n]').forEach(function (node) {
+    var key = node.getAttribute('data-i18n');
+    if (node.dataset.i18nHtml === 'emphasised') {
+      node.innerHTML = tEmphasised(key);
+    } else {
+      node.textContent = t(key);
+    }
+  });
+  scope.querySelectorAll('[data-i18n-placeholder]').forEach(function (node) {
+    node.setAttribute('placeholder', t(node.getAttribute('data-i18n-placeholder')));
+  });
+  scope.querySelectorAll('[data-i18n-title]').forEach(function (node) {
+    node.setAttribute('title', t(node.getAttribute('data-i18n-title')));
+  });
+  scope.querySelectorAll('[data-i18n-aria-label]').forEach(function (node) {
+    node.setAttribute('aria-label', t(node.getAttribute('data-i18n-aria-label')));
+  });
+}
+
 const SCOPES = {
   collections: 'collections',
   items: 'items',
@@ -143,9 +485,9 @@ async function copyShortcode(slug) {
       document.execCommand('copy');
       document.body.removeChild(ta);
     }
-    notify('Shortcode gekopieerd');
+    notify(t('msg.shortcodeCopied'));
   } catch (err) {
-    notify(err.message || 'Kopiëren mislukt', 'error');
+    notify(err.message || t('msg.copyFailed'), 'error');
   }
 }
 
@@ -377,9 +719,9 @@ function referenceBadgeHtml(slug) {
   var refs = state.references[slug];
   if (!Array.isArray(refs)) return '';  // not yet loaded
   if (refs.length === 0) {
-    return '<span class="status-pill draft" title="Geen pagina\'s gebruiken deze collectie">Ongebruikt</span>';
+    return '<span class="status-pill draft" title="' + esc(t('pill.unused.title')) + '">' + esc(t('pill.unused')) + '</span>';
   }
-  var label = refs.length === 1 ? 'Gebruikt op 1 pagina' : 'Gebruikt op ' + refs.length + ' pagina\'s';
+  var label = refs.length === 1 ? t('pill.usedOne') : t('pill.usedMany', { n: refs.length });
   var titles = refs.map(function (r) { return r.title; }).join(' · ');
   return '<span class="status-pill" title="' + esc(titles) + '">' + esc(label) + '</span>';
 }
@@ -388,17 +730,17 @@ function referenceListHtml(slug) {
   var refs = state.references[slug];
   if (!Array.isArray(refs) || refs.length === 0) return '';
   var rows = refs.map(function (r) {
-    var statusLabel = r.published ? 'gepubliceerd' : 'concept';
+    var statusLabel = r.published ? t('pill.published') : t('pill.draft');
     return (
       '<li style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--hairline);">' +
       '<span class="slug-tag">/' + esc(r.slug) + '</span>' +
       '<span style="flex:1; font-size:13px; color:var(--text);">' + esc(r.title) + '</span>' +
-      '<span class="status-pill' + (r.published ? '' : ' draft') + '">' + statusLabel + '</span>' +
+      '<span class="status-pill' + (r.published ? '' : ' draft') + '">' + esc(statusLabel) + '</span>' +
       '</li>'
     );
   }).join('');
   return (
-    '<p class="modal-copy" style="margin-bottom:8px;">Deze collectie wordt nog gebruikt op:</p>' +
+    '<p class="modal-copy" style="margin-bottom:8px;">' + esc(t('meta.referencedOn')) + '</p>' +
     '<ul style="list-style:none; padding:0; margin:0;">' + rows + '</ul>'
   );
 }
@@ -418,8 +760,8 @@ function renderCollectionsList() {
   if (sorted.length === 0) {
     el.collectionsList.innerHTML =
       '<div class="card"><div class="empty">' +
-      '<h3>Nog geen collecties</h3>' +
-      '<p class="sub">Maak hierboven je eerste collectie aan om te beginnen.</p>' +
+      '<h3>' + esc(t('empty.collections.title')) + '</h3>' +
+      '<p class="sub">' + esc(t('empty.collections.sub')) + '</p>' +
       '</div></div>';
     return;
   }
@@ -435,8 +777,8 @@ function renderCollectionsList() {
     if (sorted.length === 0) {
       el.collectionsList.innerHTML =
         '<div class="card"><div class="empty compact">' +
-        '<h3 style="font-size:22px;">Geen resultaten</h3>' +
-        '<p class="sub">Pas je zoekopdracht aan of maak een nieuwe collectie aan.</p>' +
+        '<h3 style="font-size:22px;">' + esc(t('empty.results.title')) + '</h3>' +
+        '<p class="sub">' + esc(t('empty.results.sub')) + '</p>' +
         '</div></div>';
       return;
     }
@@ -447,8 +789,8 @@ function renderCollectionsList() {
   listWrap.innerHTML =
     '<div class="card-head">' +
     '<div>' +
-    '<h3 class="card-title">Collecties</h3>' +
-    '<p class="card-sub">Klik op een collectie om te bewerken.</p>' +
+    '<h3 class="card-title">' + esc(t('card.collections.title')) + '</h3>' +
+    '<p class="card-sub">' + esc(t('card.collections.sub')) + '</p>' +
     '</div>' +
     '</div>' +
     '<div class="card-body" style="padding:0;"><div class="list"></div></div>';
@@ -474,13 +816,13 @@ function renderCollectionsList() {
       referenceBadgeHtml(slug) +
       '</div>' +
       '<div class="meta">' +
-      '<span>Shortcode: <b>' + esc(shortcode) + '</b></span>' +
+      '<span>' + esc(t('meta.shortcode.label')) + ' <b>' + esc(shortcode) + '</b></span>' +
       '</div>' +
       '</div>' +
       '<div class="actions">' +
-      '<button class="act" data-action="copy" title="Shortcode kopiëren" aria-label="Shortcode kopiëren">' + ICON.copy + '</button>' +
-      '<button class="act" data-action="open" title="Bewerken" aria-label="Bewerken">' + ICON.edit + '</button>' +
-      '<button class="act danger" data-action="delete" title="Verwijderen" aria-label="Verwijderen">' + ICON.trash + '</button>' +
+      '<button class="act" data-action="copy" title="' + esc(t('aria.copyShortcode')) + '" aria-label="' + esc(t('aria.copyShortcode')) + '">' + ICON.copy + '</button>' +
+      '<button class="act" data-action="open" title="' + esc(t('aria.edit')) + '" aria-label="' + esc(t('aria.edit')) + '">' + ICON.edit + '</button>' +
+      '<button class="act danger" data-action="delete" title="' + esc(t('aria.delete')) + '" aria-label="' + esc(t('aria.delete')) + '">' + ICON.trash + '</button>' +
       '</div>';
 
     row.querySelector('[data-action="copy"]').addEventListener('click', function () {
@@ -491,7 +833,7 @@ function renderCollectionsList() {
     });
     row.querySelector('[data-action="delete"]').addEventListener('click', function () {
       openConfirm(
-        'Collectie "' + name + '" en alle afbeeldingen verwijderen?',
+        t('confirm.deleteCollection', { name: name }),
         function () { void deleteCollection(slug); },
         referenceListHtml(slug),
       );
@@ -507,7 +849,7 @@ async function createCollection() {
   var layout = el.newColLayout.value;
 
   if (!name || !slug) {
-    notify('Vul een naam en slug in', 'error');
+    notify(t('msg.requireNameSlug'), 'error');
     return;
   }
 
@@ -517,14 +859,16 @@ async function createCollection() {
     return r.value?.slug === slug;
   });
   if (existing) {
-    notify('Een collectie met deze slug bestaat al', 'error');
+    notify(t('msg.slugExists'), 'error');
     return;
   }
 
   var cfg = state.pluginConfig;
+  // News layout uses its own default ("read the article") rather than the
+  // cards button text — the configurable default doesn't fit semantically.
   var defaultButtonText = layout === 'news'
-    ? 'Lees het bericht'
-    : (cfg.defaultButtonText || 'Bekijk project');
+    ? (activeLocale() === 'en' ? 'Read the article' : 'Lees het bericht')
+    : (cfg.defaultButtonText || (activeLocale() === 'en' ? 'View project' : 'Bekijk project'));
 
   try {
     await api.upsertDataRecord(SCOPES.collections, colKey(slug), {
@@ -545,9 +889,9 @@ async function createCollection() {
     delete el.newColSlug.dataset.manual;
     await loadCollections();
     openEditor(slug);
-    notify('Collectie aangemaakt');
+    notify(t('msg.created'));
   } catch (err) {
-    notify(err.message || 'Aanmaken mislukt', 'error');
+    notify(err.message || t('msg.createFailed'), 'error');
   }
 }
 
@@ -580,9 +924,9 @@ async function deleteCollection(slug) {
       closeEditor();
     }
     await loadCollections();
-    notify('Collectie verwijderd');
+    notify(t('msg.deletedCollection'));
   } catch (err) {
-    notify(err.message || 'Verwijderen mislukt', 'error');
+    notify(err.message || t('msg.deleteFailed'), 'error');
   }
 }
 
@@ -604,13 +948,18 @@ async function openEditor(slug) {
   var col = getSelectedCollection();
   var name = col?.value?.name || slug;
 
-  el.editorTitle.innerHTML = esc(name) + ' <em>bewerken</em>';
+  // The editor title is "<collection name> <em>edit</em>" — the part after
+  // the pipe in page.editor.title is the italicised verb.
+  var titleSuffix = t('page.editor.title');
+  var pipeIdx = titleSuffix.indexOf('|');
+  var verbTail = pipeIdx >= 0 ? titleSuffix.slice(pipeIdx + 1) : titleSuffix;
+  el.editorTitle.innerHTML = esc(name) + ' <em>' + esc(verbTail) + '</em>';
   el.editorShortcode.innerHTML =
     '<span style="display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap;">' +
-    '<span>Shortcode:</span>' +
+    '<span>' + esc(t('meta.shortcode.label')) + '</span>' +
     '<code style="font-family:var(--mono); font-size:12px; color:var(--accent-2); background:var(--surface-2); padding:2px 8px; border-radius:4px; border:1px solid var(--hairline);">' +
     esc(shortcodeFor(slug)) + '</code>' +
-    '<button class="act" data-editor-copy title="Shortcode kopiëren" aria-label="Shortcode kopiëren">' + ICON.copy + '</button>' +
+    '<button class="act" data-editor-copy title="' + esc(t('aria.copyShortcode')) + '" aria-label="' + esc(t('aria.copyShortcode')) + '">' + ICON.copy + '</button>' +
     '</span>';
   var editorCopyBtn = el.editorShortcode.querySelector('[data-editor-copy]');
   if (editorCopyBtn) {
@@ -624,7 +973,7 @@ async function openEditor(slug) {
   el.editTitlePosition.value = col?.value?.titlePosition || 'below';
   setSwitchState(el.editShowTitleSwitch, col?.value?.showTitle === true || col?.value?.showTitle === 'true');
   el.editTitleAlign.value = col?.value?.titleAlign || 'left';
-  el.editBtnText.value = col?.value?.buttonText || 'Bekijk project';
+  el.editBtnText.value = col?.value?.buttonText || (activeLocale() === 'en' ? 'View project' : 'Bekijk project');
 
   var bg = col?.value?.backgroundColor || '';
   el.editBgColorText.value = bg;
@@ -657,7 +1006,7 @@ async function saveSettings() {
 
   var bgRaw = el.editBgColorText.value.trim();
   if (bgRaw && !isValidCssColor(bgRaw)) {
-    notify('Ongeldige achtergrondkleur (gebruik #hex)', 'error');
+    notify(t('msg.invalidColor'), 'error');
     return;
   }
 
@@ -671,14 +1020,14 @@ async function saveSettings() {
       titlePosition: el.editTitlePosition.value,
       showTitle: isSwitchOn(el.editShowTitleSwitch),
       titleAlign: el.editTitleAlign.value,
-      buttonText: el.editBtnText.value.trim() || 'Bekijk project',
+      buttonText: el.editBtnText.value.trim() || (activeLocale() === 'en' ? 'View project' : 'Bekijk project'),
       backgroundColor: bgRaw,
     });
 
     await loadCollections();
-    notify('Instellingen opgeslagen');
+    notify(t('msg.saved'));
   } catch (err) {
-    notify(err.message || 'Opslaan mislukt', 'error');
+    notify(err.message || t('msg.saveFailed'), 'error');
   }
 }
 
@@ -744,7 +1093,7 @@ async function handleDrop(draggedKey, targetKey, position) {
   try {
     await persistOrder(currentOrder);
   } catch (err) {
-    notify(err.message || 'Volgorde wijzigen mislukt', 'error');
+    notify(err.message || t('msg.reorderFailed'), 'error');
   }
 }
 
@@ -763,9 +1112,9 @@ function openImagePreview(imageUrl, title) {
     '<div class="modal lg" style="background:var(--bg-dim); padding:0;">' +
     '<div class="modal-head" style="border-bottom:1px solid var(--hairline);">' +
     '<div>' +
-    '<h2 class="m-title">Voorbeeld' + (title ? ' &mdash; <em>' + esc(title) + '</em>' : '') + '</h2>' +
+    '<h2 class="m-title">' + esc(t('modal.preview.title')) + (title ? ' &mdash; <em>' + esc(title) + '</em>' : '') + '</h2>' +
     '</div>' +
-    '<button class="modal-close" type="button" aria-label="Sluiten">' + ICON.close + '</button>' +
+    '<button class="modal-close" type="button" aria-label="' + esc(t('aria.close')) + '">' + ICON.close + '</button>' +
     '</div>' +
     '<div style="padding:24px; display:flex; align-items:center; justify-content:center; background:var(--bg);">' +
     '<img src="' + esc(imageUrl) + '" alt="' + esc(title || '') + '" style="max-width:100%; max-height:70vh; display:block; border-radius:8px;" />' +
@@ -796,8 +1145,8 @@ function renderItemsList() {
   if (state.items.length === 0) {
     el.itemsList.innerHTML =
       '<div class="empty compact">' +
-      '<h3 style="font-size:22px;">Nog geen afbeeldingen</h3>' +
-      '<p class="sub">Sleep bestanden of voeg een URL toe om te beginnen.</p>' +
+      '<h3 style="font-size:22px;">' + esc(t('empty.items.title')) + '</h3>' +
+      '<p class="sub">' + esc(t('empty.items.sub')) + '</p>' +
       '</div>';
     return;
   }
@@ -829,25 +1178,27 @@ function renderItemsList() {
       : '<div style="width:100%; height:100%; display:grid; place-items:center; color:var(--text-4);">' + ICON.image + '</div>';
 
     row.innerHTML =
-      '<button type="button" class="act" data-action="drag-handle" title="Sleep om te herordenen" aria-label="Sleep om te herordenen" style="cursor:grab; touch-action:none;">' + ICON.grip + '</button>' +
-      '<button type="button" data-action="preview" title="Voorbeeld" aria-label="Voorbeeld" style="width:64px; height:48px; flex-shrink:0; border-radius:8px; overflow:hidden; background:var(--bg-dim); border:1px solid var(--hairline); padding:0; cursor:' + (previewUrl ? 'zoom-in' : 'default') + ';">' +
+      '<button type="button" class="act" data-action="drag-handle" title="' + esc(t('aria.drag')) + '" aria-label="' + esc(t('aria.drag')) + '" style="cursor:grab; touch-action:none;">' + ICON.grip + '</button>' +
+      '<button type="button" data-action="preview" title="' + esc(t('aria.preview')) + '" aria-label="' + esc(t('aria.preview')) + '" style="width:64px; height:48px; flex-shrink:0; border-radius:8px; overflow:hidden; background:var(--bg-dim); border:1px solid var(--hairline); padding:0; cursor:' + (previewUrl ? 'zoom-in' : 'default') + ';">' +
       thumbInner +
       '</button>' +
       '<div class="body" style="min-width:0; flex:1;">' +
       '<div class="title-line" style="margin-bottom:4px;">' +
       '<span class="t" style="font-family:var(--sans); font-size:14px; color:var(--text); font-style:' + (title ? 'normal' : 'italic') + ';">' +
-      esc(title || 'Geen titel') +
+      esc(title || t('placeholder.colTitle')) +
       '</span>' +
       '</div>' +
       '<div class="meta">' +
-      (linkUrl ? '<span>Link: <b>' + esc(linkUrl) + '</b></span>' : '<span>Geen link</span>') +
+      (linkUrl
+        ? '<span>' + esc(t('meta.link.label')) + ' <b>' + esc(linkUrl) + '</b></span>'
+        : '<span>' + esc(t('meta.noLink')) + '</span>') +
       '</div>' +
       '</div>' +
       '<div class="actions" style="opacity:1; gap:6px;">' +
-      (isFirst ? '' : '<button class="act" data-action="up" title="Omhoog" aria-label="Omhoog">' + ICON.up + '</button>') +
-      (isLast ? '' : '<button class="act" data-action="down" title="Omlaag" aria-label="Omlaag">' + ICON.down + '</button>') +
-      '<button class="act" data-action="edit" title="Bewerken" aria-label="Bewerken">' + ICON.edit + '</button>' +
-      '<button class="act danger" data-action="delete" title="Verwijderen" aria-label="Verwijderen">' + ICON.trash + '</button>' +
+      (isFirst ? '' : '<button class="act" data-action="up" title="' + esc(t('aria.up')) + '" aria-label="' + esc(t('aria.up')) + '">' + ICON.up + '</button>') +
+      (isLast ? '' : '<button class="act" data-action="down" title="' + esc(t('aria.down')) + '" aria-label="' + esc(t('aria.down')) + '">' + ICON.down + '</button>') +
+      '<button class="act" data-action="edit" title="' + esc(t('aria.edit')) + '" aria-label="' + esc(t('aria.edit')) + '">' + ICON.edit + '</button>' +
+      '<button class="act danger" data-action="delete" title="' + esc(t('aria.delete')) + '" aria-label="' + esc(t('aria.delete')) + '">' + ICON.trash + '</button>' +
       '</div>';
 
     // Drag handle visual state (grab/grabbing cursor only — the whole row is draggable).
@@ -910,7 +1261,7 @@ function renderItemsList() {
     });
     row.querySelector('[data-action="delete"]').addEventListener('click', function () {
       openConfirm(
-        'Deze afbeelding verplaatsen naar de prullenbak? Je kunt hem 30 dagen terugzetten.',
+        t('confirm.deleteItem'),
         function () { void deleteItem(record.key); },
       );
     });
@@ -926,7 +1277,7 @@ function resetItemForm() {
   el.itemUrl.value = '';
   el.itemTitle.value = '';
   el.itemLink.value = '';
-  el.addItemBtn.textContent = 'Afbeelding toevoegen';
+  el.addItemBtn.textContent = t('btn.addImage');
   el.resetItemBtn.style.display = 'none';
   renderFilePreview();
 }
@@ -963,7 +1314,7 @@ function editItem(record) {
   el.itemUrl.value = record.value?.imageUrl || '';
   el.itemTitle.value = record.value?.title || '';
   el.itemLink.value = record.value?.linkUrl || '';
-  el.addItemBtn.textContent = 'Bijwerken';
+  el.addItemBtn.textContent = t('btn.updateImage');
   el.resetItemBtn.style.display = '';
   el.itemFile.value = '';
   renderFilePreview();
@@ -984,12 +1335,12 @@ async function addOrUpdateItem() {
       try {
         imageUrl = await api.uploadFile(await prepareFileForUpload(files[0]));
       } catch (err) {
-        notify(err.message || 'Upload mislukt', 'error');
+        notify(err.message || t('msg.uploadFailed'), 'error');
         return;
       }
     }
     if (!imageUrl) {
-      notify('Selecteer een bestand of vul een URL in', 'error');
+      notify(t('msg.requireFileOrUrl'), 'error');
       return;
     }
     var existing = state.items.find(function (r) { return r.key === state.editingItemKey; });
@@ -1004,15 +1355,15 @@ async function addOrUpdateItem() {
       });
       resetItemForm();
       await loadItems();
-      notify('Afbeelding bijgewerkt');
+      notify(t('msg.imageUpdated'));
     } catch (err) {
-      notify(err.message || 'Opslaan mislukt', 'error');
+      notify(err.message || t('msg.saveFailed'), 'error');
     }
     return;
   }
 
   if (files.length === 0 && !urlInput) {
-    notify('Sleep bestanden of vul een URL in', 'error');
+    notify(t('msg.requireDropOrUrl'), 'error');
     return;
   }
 
@@ -1035,9 +1386,9 @@ async function addOrUpdateItem() {
       );
       resetItemForm();
       await loadItems();
-      notify('Afbeelding toegevoegd');
+      notify(t('msg.imageAdded'));
     } catch (err) {
-      notify(err.message || 'Opslaan mislukt', 'error');
+      notify(err.message || t('msg.saveFailed'), 'error');
     }
     return;
   }
@@ -1045,7 +1396,7 @@ async function addOrUpdateItem() {
   el.addItemBtn.disabled = true;
   for (var i = 0; i < files.length; i++) {
     var file = files[i];
-    notify('Uploaden ' + (i + 1) + '/' + files.length + '…');
+    notify(t('msg.uploading', { i: i + 1, total: files.length }));
     try {
       var uploadedUrl = await api.uploadFile(await prepareFileForUpload(file));
       var itemTitle = files.length === 1 ? title : '';
@@ -1073,9 +1424,9 @@ async function addOrUpdateItem() {
   await loadItems();
 
   if (failedCount === 0) {
-    notify(createdCount === 1 ? 'Afbeelding toegevoegd' : createdCount + ' afbeeldingen toegevoegd');
+    notify(createdCount === 1 ? t('msg.imageAdded') : t('msg.imagesAdded', { n: createdCount }));
   } else {
-    notify(createdCount + ' toegevoegd, ' + failedCount + ' mislukt', 'error');
+    notify(t('msg.partialSuccess', { ok: createdCount, failed: failedCount }), 'error');
   }
 }
 
@@ -1097,9 +1448,9 @@ async function deleteItem(key) {
     if (state.editingItemKey === key) resetItemForm();
     await loadItems();
     await loadDeletedItems();
-    notify('Afbeelding verplaatst naar prullenbak');
+    notify(t('msg.imageDeleted'));
   } catch (err) {
-    notify(err.message || 'Verwijderen mislukt', 'error');
+    notify(err.message || t('msg.deleteFailed'), 'error');
   }
 }
 
@@ -1138,17 +1489,17 @@ async function pruneExpiredDeletedItems() {
   }));
 }
 
-function timeAgoNl(ms) {
+function timeAgo(ms) {
   var diff = Math.max(0, Date.now() - ms);
   var sec = Math.floor(diff / 1000);
-  if (sec < 60) return 'zojuist';
+  if (sec < 60) return t('time.justNow');
   var min = Math.floor(sec / 60);
-  if (min < 60) return min + ' min geleden';
+  if (min < 60) return t('time.minutes', { n: min });
   var hr = Math.floor(min / 60);
-  if (hr < 24) return hr + ' uur geleden';
+  if (hr < 24) return t('time.hours', { n: hr });
   var day = Math.floor(hr / 24);
-  if (day < 30) return day + ' dag' + (day === 1 ? '' : 'en') + ' geleden';
-  return 'meer dan 30 dagen geleden';
+  if (day < 30) return day === 1 ? t('time.day', { n: 1 }) : t('time.days', { n: day });
+  return t('time.over30');
 }
 
 function renderRecycleBin() {
@@ -1190,15 +1541,15 @@ function renderRecycleBin() {
       '</div>' +
       '<div style="min-width:0; flex:1;">' +
       '<div style="font-family:var(--sans); font-size:13px; color:var(--text-2); font-style:' + (title ? 'normal' : 'italic') + '; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' +
-      esc(title || 'Geen titel') +
+      esc(title || t('placeholder.colTitle')) +
       '</div>' +
-      '<div class="meta"><span>Verwijderd ' + esc(timeAgoNl(deletedAt)) + '</span></div>' +
+      '<div class="meta"><span>' + esc(t('meta.deleted.suffix')) + esc(timeAgo(deletedAt)) + '</span></div>' +
       '</div>' +
       '<div class="actions" style="opacity:1; gap:6px;">' +
-      '<button class="act" data-action="restore" title="Terugzetten" aria-label="Terugzetten">' +
+      '<button class="act" data-action="restore" title="' + esc(t('aria.restore')) + '" aria-label="' + esc(t('aria.restore')) + '">' +
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 10 9 10"/></svg>' +
       '</button>' +
-      '<button class="act danger" data-action="purge" title="Definitief verwijderen" aria-label="Definitief verwijderen">' + ICON.trash + '</button>' +
+      '<button class="act danger" data-action="purge" title="' + esc(t('aria.purge')) + '" aria-label="' + esc(t('aria.purge')) + '">' + ICON.trash + '</button>' +
       '</div>';
 
     row.querySelector('[data-action="restore"]').addEventListener('click', function () {
@@ -1206,7 +1557,7 @@ function renderRecycleBin() {
     });
     row.querySelector('[data-action="purge"]').addEventListener('click', function () {
       openConfirm(
-        'Deze afbeelding definitief verwijderen?',
+        t('confirm.purgeItem'),
         function () { void purgeDeletedItem(record.key); },
       );
     });
@@ -1219,7 +1570,7 @@ async function restoreItem(deletedRecord) {
   var rec = deletedRecord.value?.record;
   var originalKey = deletedRecord.value?.originalKey;
   if (!rec || !originalKey) {
-    notify('Kan niet terugzetten — record beschadigd', 'error');
+    notify(t('msg.restoreCorrupt'), 'error');
     return;
   }
   try {
@@ -1230,9 +1581,9 @@ async function restoreItem(deletedRecord) {
     await api.deleteDataRecord(SCOPES.deletedItems, deletedRecord.key);
     await loadItems();
     await loadDeletedItems();
-    notify('Afbeelding teruggezet');
+    notify(t('msg.restored'));
   } catch (err) {
-    notify(err.message || 'Terugzetten mislukt', 'error');
+    notify(err.message || t('msg.restoreFailed'), 'error');
   }
 }
 
@@ -1240,9 +1591,9 @@ async function purgeDeletedItem(key) {
   try {
     await api.deleteDataRecord(SCOPES.deletedItems, key);
     await loadDeletedItems();
-    notify('Definitief verwijderd');
+    notify(t('msg.purged'));
   } catch (err) {
-    notify(err.message || 'Verwijderen mislukt', 'error');
+    notify(err.message || t('msg.purgeFailed'), 'error');
   }
 }
 
@@ -1253,9 +1604,9 @@ async function emptyRecycleBin() {
       return api.deleteDataRecord(SCOPES.deletedItems, r.key);
     }));
     await loadDeletedItems();
-    notify('Prullenbak geleegd');
+    notify(t('msg.binEmptied'));
   } catch (err) {
-    notify(err.message || 'Leegmaken mislukt', 'error');
+    notify(err.message || t('msg.emptyBinFailed'), 'error');
   }
 }
 
@@ -1282,7 +1633,7 @@ async function moveItem(currentIndex, direction) {
     ]);
     await loadItems();
   } catch (err) {
-    notify(err.message || 'Volgorde wijzigen mislukt', 'error');
+    notify(err.message || t('msg.reorderFailed'), 'error');
   }
 }
 
@@ -1300,7 +1651,7 @@ if (el.collectionsSearch) {
 if (el.emptyBinBtn) {
   el.emptyBinBtn.addEventListener('click', function () {
     openConfirm(
-      'Prullenbak voor deze collectie definitief leegmaken?',
+      t('confirm.emptyBin'),
       function () { void emptyRecycleBin(); },
     );
   });
@@ -1402,6 +1753,7 @@ async function loadPluginConfig() {
 
 (async function init() {
   try {
+    applyI18n();
     updateLayoutFields();
     // Fire-and-forget — clean up expired bin entries on every load.
     void pruneExpiredDeletedItems();
@@ -1409,6 +1761,6 @@ async function loadPluginConfig() {
     await loadCollections();
   } catch (err) {
     console.error(err);
-    notify(err.message || 'Plugin admin laden mislukt', 'error');
+    notify(err.message || t('msg.initFailed'), 'error');
   }
 })();
