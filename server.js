@@ -137,9 +137,64 @@ function coerceEmbedUrl(url) {
 }
 
 /**
+ * Build a `srcset` attribute string for raster images. Both URL families
+ * the plugin produces (main CMS path-based and plugin uploads with ?w=)
+ * support on-the-fly resizing, so we can emit a multi-width srcset that
+ * lets the browser pick the best resolution for the layout + device.
+ *
+ * Returns '' for SVG/ICO (already vector / tiny) and for empty URLs.
+ */
+function buildSrcsetAttrs(rawUrl) {
+  if (!rawUrl) return '';
+  if (/\.(svg|ico)(\?|$)/i.test(rawUrl)) return '';
+
+  const widths = [400, 800, 1600];
+
+  if (rawUrl.startsWith('/images/')) {
+    const filename = rawUrl.slice('/images/'.length);
+    const srcset = widths
+      .map((w) => `/images/${w}/0/${filename} ${w}w`)
+      .join(', ');
+    return ` srcset="${srcset}"`;
+  }
+
+  // Plugin uploads (or arbitrary external URLs that accept ?w=). Strip
+  // any pre-existing w= param so we don't double-up on it.
+  const stripped = rawUrl.replace(/([?&])w=\d+(&|$)/g, function (_m, lead, trail) {
+    return trail === '&' ? lead : '';
+  }).replace(/[?&]$/, '');
+  const sep = stripped.includes('?') ? '&' : '?';
+  const srcset = widths
+    .map((w) => `${escapeHtml(stripped)}${sep}w=${w} ${w}w`)
+    .join(', ');
+  return ` srcset="${srcset}"`;
+}
+
+/**
+ * Build a tiny (24px wide) "low-quality image placeholder" URL that we
+ * can use as a background-image on the wrapper element so the user sees
+ * something colourful immediately instead of an empty box while the
+ * full-size image loads. Same URL families as buildSrcsetAttrs.
+ */
+function buildLqipUrl(rawUrl) {
+  if (!rawUrl) return '';
+  if (/\.(svg|ico)(\?|$)/i.test(rawUrl)) return '';
+  if (rawUrl.startsWith('/images/')) {
+    return `/images/24/0/${rawUrl.slice('/images/'.length)}`;
+  }
+  const stripped = rawUrl.replace(/([?&])w=\d+(&|$)/g, function (_m, lead, trail) {
+    return trail === '&' ? lead : '';
+  }).replace(/[?&]$/, '');
+  const sep = stripped.includes('?') ? '&' : '?';
+  return `${stripped}${sep}w=24`;
+}
+
+/**
  * Render the right <img>/<video>/<iframe> for an item based on its
  * mediaType. Defaults to image so pre-PR-19 items keep rendering as
  * before. opts.loading defaults to 'eager' for idx 0, 'lazy' otherwise.
+ * opts.sizes lets each layout pass a sensible `sizes` attribute so the
+ * browser picks the right srcset variant.
  */
 function buildMediaElement(item, idx, opts) {
   const mediaType = String(item.value?.mediaType || 'image').toLowerCase();
@@ -165,9 +220,31 @@ function buildMediaElement(item, idx, opts) {
     return `<iframe src="${escapeHtml(embedUrl)}" title="${altText}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen loading="lazy" frameborder="0"></iframe>`;
   }
 
-  // Default — image
+  // Default — image. The browser uses src as the fallback / smallest
+  // baseline (most-compatible variant) and the srcset entries to pick a
+  // better-fitting size. sizes tells it how wide the image actually
+  // renders so it can resolve the srcset.
   const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
-  return `<img src="${thumbUrl}" alt="${altText}" loading="${loading}" />`;
+  const srcsetAttr = buildSrcsetAttrs(rawUrl);
+  const sizesAttr = (opts && opts.sizes)
+    ? ` sizes="${escapeHtml(opts.sizes)}"`
+    : '';
+  return `<img src="${thumbUrl}"${srcsetAttr}${sizesAttr} alt="${altText}" loading="${loading}" />`;
+}
+
+/**
+ * Compute the eager/lazy threshold for a layout. The first `eagerCount`
+ * items render with loading="eager" so above-the-fold content paints
+ * immediately; everything else stays lazy.
+ */
+function eagerCountFor(layout, columns) {
+  if (layout === 'slider') return 1;       // hero LCP candidate
+  if (layout === 'news') return 3;         // ~ first row of visible cards
+  if (layout === 'grid' || layout === 'cards') {
+    const cols = Number(columns) || 3;
+    return Math.max(1, Math.min(cols, 4)); // first row
+  }
+  return 1;
 }
 
 /**
@@ -207,7 +284,7 @@ function formatItemDate(value) {
   }
 }
 
-function buildCardItem(item, lightbox, bgColor, buttonText, idx) {
+function buildCardItem(item, lightbox, bgColor, buttonText, idx, eagerCount, cardSizes) {
   const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
   const fullUrl = escapeHtml(buildFullUrl(rawUrl));
   const title = escapeHtml(item.value?.title || '');
@@ -221,7 +298,14 @@ function buildCardItem(item, lightbox, bgColor, buttonText, idx) {
   }
 
   const captionHtml = caption ? `<span class="is-card-caption">${caption}</span>` : '';
-  const mediaHtml = buildMediaElement(item, idx);
+  const mediaHtml = buildMediaElement(item, idx, {
+    loading: idx < eagerCount ? 'eager' : 'lazy',
+    sizes: cardSizes,
+  });
+  const lqip = buildLqipUrl(rawUrl);
+  const lqipStyle = lqip
+    ? ` style="background-image:url('${escapeHtml(lqip)}'); background-size:cover; background-position:center;"`
+    : '';
 
   const lbAttr = (lightbox && lightboxEligible(item)) ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
   const cardClass = linkUrl ? 'is-card is-card--has-btn' : 'is-card';
@@ -231,7 +315,7 @@ function buildCardItem(item, lightbox, bgColor, buttonText, idx) {
 
   return `
     <div class="${cardClass}"${lbAttr}${titleAttr}${captionAttr}${styleAttr}${animateAttr(idx)}>
-      <div class="is-card-image">
+      <div class="is-card-image"${lqipStyle} data-is-lqip>
         ${mediaHtml}
       </div>
       <div class="is-card-footer">
@@ -256,7 +340,7 @@ function sanitizeCssColor(value) {
   return '';
 }
 
-function buildGridItem(item, lightbox, showTitle, bgColor, idx) {
+function buildGridItem(item, lightbox, showTitle, bgColor, idx, eagerCount, gridSizes) {
   const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
   const fullUrl = escapeHtml(buildFullUrl(rawUrl));
   const title = escapeHtml(item.value?.title || '');
@@ -265,15 +349,27 @@ function buildGridItem(item, lightbox, showTitle, bgColor, idx) {
   const captionHtml = showTitle && title
     ? `<span class="is-grid-caption">${title}</span>`
     : '';
-  const mediaHtml = buildMediaElement(item, idx);
+  const mediaHtml = buildMediaElement(item, idx, {
+    loading: idx < eagerCount ? 'eager' : 'lazy',
+    sizes: gridSizes,
+  });
+  const lqip = buildLqipUrl(rawUrl);
+  // For grid items the LQIP lives on the item itself (no separate
+  // wrapper) — same effect, one fewer element.
+  const lqipBg = lqip
+    ? `background-image:url('${escapeHtml(lqip)}'); background-size:cover; background-position:center;`
+    : '';
+  const bgStyle = bgColor ? `background-color: ${bgColor};` : '';
+  const combinedStyle = [lqipBg, bgStyle].filter(Boolean).join(' ');
+  const styleAttr = combinedStyle ? ` style="${combinedStyle}"` : '';
+  const lqipAttr = lqip ? ' data-is-lqip' : '';
 
   const lbAttr = (lightbox && lightboxEligible(item)) ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
-  const styleAttr = bgColor ? ` style="background-color: ${bgColor}"` : '';
   const titleAttr = title ? ` data-is-title="${title}"` : '';
   const captionAttr = caption ? ` data-is-caption="${caption}"` : '';
 
   return `
-    <div class="is-grid-item"${lbAttr}${titleAttr}${captionAttr}${styleAttr}${animateAttr(idx)}>
+    <div class="is-grid-item"${lbAttr}${titleAttr}${captionAttr}${styleAttr}${lqipAttr}${animateAttr(idx)}>
       ${mediaHtml}
       ${captionHtml}
     </div>
@@ -287,7 +383,13 @@ function renderCards(collection, items) {
   const columns = Number(collection.columns) || 3;
   const bgColor = sanitizeCssColor(collection.backgroundColor);
   const buttonText = collection.buttonText || 'Bekijk project';
-  const itemsHtml = items.map((item, idx) => buildCardItem(item, lightbox, bgColor, buttonText, idx)).join('');
+  const eagerCount = eagerCountFor('cards', columns);
+  // `sizes` matches the grid CSS rules in image-sections.css: 1 col on
+  // <640, 2 cols on <1024, then `columns` cols on desktop. The fractions
+  // are inverses (100/columns vw).
+  const desktopVw = Math.round(100 / Math.max(1, columns));
+  const cardSizes = `(min-width: 1024px) ${desktopVw}vw, (min-width: 640px) 50vw, 100vw`;
+  const itemsHtml = items.map((item, idx) => buildCardItem(item, lightbox, bgColor, buttonText, idx, eagerCount, cardSizes)).join('');
 
   const classes = [
     'is-section',
@@ -306,7 +408,7 @@ function renderCards(collection, items) {
   `;
 }
 
-function buildNewsItem(item, buttonText, lightbox, idx) {
+function buildNewsItem(item, buttonText, lightbox, idx, eagerCount) {
   const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
   const fullUrl = escapeHtml(buildFullUrl(rawUrl));
   const title = escapeHtml(item.value?.title || '');
@@ -320,7 +422,16 @@ function buildNewsItem(item, buttonText, lightbox, idx) {
   const linkHtml = linkUrl
     ? `<a href="${linkUrl}" class="is-news-card-link">${safeButtonText} ›</a>`
     : '';
-  const mediaHtml = buildMediaElement(item, idx);
+  const mediaHtml = buildMediaElement(item, idx, {
+    loading: idx < eagerCount ? 'eager' : 'lazy',
+    // ~29% width at >=1024, 44% at >=640, else 80% (matches the CSS rules
+    // in image-sections.css for .is-news-card flex-basis).
+    sizes: '(min-width: 1024px) 29vw, (min-width: 640px) 44vw, 80vw',
+  });
+  const lqip = buildLqipUrl(rawUrl);
+  const lqipStyle = lqip
+    ? ` style="background-image:url('${escapeHtml(lqip)}'); background-size:cover; background-position:center;"`
+    : '';
 
   const lbAttr = (lightbox && lightboxEligible(item)) ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
   const titleAttr = title ? ` data-is-title="${title}"` : '';
@@ -328,7 +439,7 @@ function buildNewsItem(item, buttonText, lightbox, idx) {
 
   return `
     <div class="is-news-card"${lbAttr}${titleAttr}${captionAttr}${animateAttr(idx)}>
-      <div class="is-news-card-image">
+      <div class="is-news-card-image"${lqipStyle} data-is-lqip>
         ${mediaHtml}
       </div>
       <div class="is-news-card-body">
@@ -344,7 +455,8 @@ function buildNewsItem(item, buttonText, lightbox, idx) {
 function renderNews(collection, items) {
   const lightbox = collection.lightbox === true || collection.lightbox === 'true';
   const buttonText = collection.buttonText || 'Lees het bericht';
-  const itemsHtml = items.map((item, idx) => buildNewsItem(item, buttonText, lightbox, idx)).join('');
+  const eagerCount = eagerCountFor('news');
+  const itemsHtml = items.map((item, idx) => buildNewsItem(item, buttonText, lightbox, idx, eagerCount)).join('');
   const classes = [
     'is-section',
     'is-layout-news',
@@ -367,7 +479,10 @@ function renderGrid(collection, items) {
   const showTitle = collection.showTitle === true || collection.showTitle === 'true';
   const columns = Number(collection.columns) || 3;
   const bgColor = sanitizeCssColor(collection.backgroundColor);
-  const itemsHtml = items.map((item, idx) => buildGridItem(item, lightbox, showTitle, bgColor, idx)).join('');
+  const eagerCount = eagerCountFor('grid', columns);
+  const desktopVw = Math.round(100 / Math.max(1, columns));
+  const gridSizes = `(min-width: 1024px) ${desktopVw}vw, (min-width: 640px) 50vw, 100vw`;
+  const itemsHtml = items.map((item, idx) => buildGridItem(item, lightbox, showTitle, bgColor, idx, eagerCount, gridSizes)).join('');
 
   const classes = [
     'is-section',
@@ -431,9 +546,16 @@ function buildSliderItem(item, lightbox, buttonText, idx, total) {
     ? `<div class="is-slide-content"><div class="is-slide-content-inner">${dateHtml}${titleHtml}${captionHtml}${buttonHtml}</div></div>`
     : '';
 
-  // Slider images load eager on the first slide (it's the LCP) and lazy
-  // afterwards. buildMediaElement already does this; let it pick.
-  const mediaHtml = buildMediaElement(item, idx);
+  // The hero slide is the page's LCP candidate — eager-load only it
+  // (idx 0). Sliders always fill the viewport so sizes is always 100vw.
+  const mediaHtml = buildMediaElement(item, idx, {
+    loading: idx === 0 ? 'eager' : 'lazy',
+    sizes: '100vw',
+  });
+  const lqip = buildLqipUrl(rawUrl);
+  const lqipStyle = lqip
+    ? ` style="background-image:url('${escapeHtml(lqip)}'); background-size:cover; background-position:center;"`
+    : '';
 
   const lbAttr = (lightbox && lightboxEligible(item)) ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
   const titleAttr = title ? ` data-is-title="${title}"` : '';
@@ -442,7 +564,7 @@ function buildSliderItem(item, lightbox, buttonText, idx, total) {
   // Slides need explicit indices for the public JS dot pagination + aria.
   return `
     <div class="is-slide" role="group" aria-roledescription="slide" aria-label="${idx + 1} / ${total}" data-is-slide-index="${idx}"${lbAttr}${titleAttr}${captionAttr}>
-      <div class="is-slide-image">
+      <div class="is-slide-image"${lqipStyle} data-is-lqip>
         ${mediaHtml}
       </div>
       ${contentHtml}
