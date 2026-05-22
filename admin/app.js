@@ -43,6 +43,11 @@ const LOCALES = {
     'label.bgColor.hint': 'Laat leeg voor een transparante achtergrond.',
     'label.url': 'OF EXTERNE URL',
     'label.title': 'TITEL',
+    'label.alt': 'ALT-TEKST',
+    'label.alt.hint': 'Valt terug op de titel als leeg gelaten.',
+    'label.caption': 'ONDERSCHRIFT',
+    'label.date': 'DATUM',
+    'label.date.hint': 'Getoond in nieuws-layout.',
     'label.linkUrl': 'LINK URL',
     'label.filter': 'FILTER',
     'option.layout.cards': 'Kaarten — titel + knop',
@@ -66,6 +71,8 @@ const LOCALES = {
     'placeholder.btnText': 'Bekijk project',
     'placeholder.url': 'https://...',
     'placeholder.title': 'Titel (optioneel bij meerdere bestanden)',
+    'placeholder.alt': 'Beschrijving voor schermlezers',
+    'placeholder.caption': 'Korte beschrijving onder de titel',
     'placeholder.search': 'Zoek collectie…',
     'btn.create': 'Collectie aanmaken',
     'btn.save': 'Instellingen opslaan',
@@ -180,6 +187,11 @@ const LOCALES = {
     'label.bgColor.hint': 'Leave empty for a transparent background.',
     'label.url': 'OR EXTERNAL URL',
     'label.title': 'TITLE',
+    'label.alt': 'ALT TEXT',
+    'label.alt.hint': 'Falls back to the title when left empty.',
+    'label.caption': 'CAPTION',
+    'label.date': 'DATE',
+    'label.date.hint': 'Shown in news layout.',
     'label.linkUrl': 'LINK URL',
     'label.filter': 'FILTER',
     'option.layout.cards': 'Cards — title + button',
@@ -203,6 +215,8 @@ const LOCALES = {
     'placeholder.btnText': 'View project',
     'placeholder.url': 'https://...',
     'placeholder.title': 'Title (optional when multiple files)',
+    'placeholder.alt': 'Description for screen readers',
+    'placeholder.caption': 'Short text below the title',
     'placeholder.search': 'Search collection…',
     'btn.create': 'Create collection',
     'btn.save': 'Save settings',
@@ -430,6 +444,12 @@ const el = {
   itemUrl: document.getElementById('item-url'),
   itemTitle: document.getElementById('item-title'),
   itemTitleGroup: document.getElementById('item-title-group'),
+  itemAlt: document.getElementById('item-alt'),
+  itemAltGroup: document.getElementById('item-alt-group'),
+  itemCaption: document.getElementById('item-caption'),
+  itemCaptionGroup: document.getElementById('item-caption-group'),
+  itemDate: document.getElementById('item-date'),
+  itemDateGroup: document.getElementById('item-date-group'),
   itemLink: document.getElementById('item-link'),
   itemLinkGroup: document.getElementById('item-link-group'),
   addItemBtn: document.getElementById('add-item-btn'),
@@ -1276,6 +1296,9 @@ function resetItemForm() {
   el.itemFile.value = '';
   el.itemUrl.value = '';
   el.itemTitle.value = '';
+  el.itemAlt.value = '';
+  el.itemCaption.value = '';
+  el.itemDate.value = '';
   el.itemLink.value = '';
   el.addItemBtn.textContent = t('btn.addImage');
   el.resetItemBtn.style.display = 'none';
@@ -1313,6 +1336,10 @@ function editItem(record) {
   state.pendingFiles = [];
   el.itemUrl.value = record.value?.imageUrl || '';
   el.itemTitle.value = record.value?.title || '';
+  el.itemAlt.value = record.value?.altText || '';
+  el.itemCaption.value = record.value?.caption || '';
+  // <input type="date"> wants YYYY-MM-DD — slice the ISO string we store.
+  el.itemDate.value = (record.value?.date || '').toString().slice(0, 10);
   el.itemLink.value = record.value?.linkUrl || '';
   el.addItemBtn.textContent = t('btn.updateImage');
   el.resetItemBtn.style.display = '';
@@ -1326,6 +1353,9 @@ async function addOrUpdateItem() {
   var files = state.pendingFiles.slice();
   var urlInput = el.itemUrl.value.trim();
   var title = el.itemTitle.value.trim();
+  var altText = el.itemAlt.value.trim();
+  var caption = el.itemCaption.value.trim();
+  var date = el.itemDate.value.trim();
   var linkUrl = el.itemLink.value.trim();
   var isEditing = Boolean(state.editingItemKey);
 
@@ -1350,6 +1380,9 @@ async function addOrUpdateItem() {
         collectionSlug: state.selectedSlug,
         imageUrl: imageUrl,
         title: title,
+        altText: altText,
+        caption: caption,
+        date: date,
         linkUrl: linkUrl,
         sortOrder: sortOrder,
       });
@@ -1380,6 +1413,9 @@ async function addOrUpdateItem() {
           collectionSlug: state.selectedSlug,
           imageUrl: urlInput,
           title: title,
+          altText: altText,
+          caption: caption,
+          date: date,
           linkUrl: linkUrl,
           sortOrder: baseSortOrder,
         },
@@ -1399,8 +1435,14 @@ async function addOrUpdateItem() {
     notify(t('msg.uploading', { i: i + 1, total: files.length }));
     try {
       var uploadedUrl = await api.uploadFile(await prepareFileForUpload(file));
+      // Single-file uploads adopt the form's title/alt/caption/date/link;
+      // multi-file batches leave those blank since they're meant per-image
+      // and have nowhere sensible to land across many files.
       var itemTitle = files.length === 1 ? title : '';
       if (!itemTitle) itemTitle = filenameToTitle(file.name);
+      var itemAlt = files.length === 1 ? altText : '';
+      var itemCaption = files.length === 1 ? caption : '';
+      var itemDate = files.length === 1 ? date : '';
       var itemLink = files.length === 1 ? linkUrl : '';
       await api.upsertDataRecord(
         SCOPES.items,
@@ -1409,6 +1451,9 @@ async function addOrUpdateItem() {
           collectionSlug: state.selectedSlug,
           imageUrl: uploadedUrl,
           title: itemTitle,
+          altText: itemAlt,
+          caption: itemCaption,
+          date: itemDate,
           linkUrl: itemLink,
           sortOrder: baseSortOrder + i,
         },

@@ -60,11 +60,28 @@
   padding: 0.75rem;
 }
 
+.is-layout-cards .is-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1;
+}
+
 .is-layout-cards .is-card-title {
   font-weight: 700;
   font-size: 0.875rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+.is-layout-cards .is-card-caption {
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  opacity: 0.7;
+  line-height: 1.4;
 }
 
 .is-layout-cards .is-card-btn {
@@ -251,11 +268,28 @@
   gap: 1rem;
 }
 
+.is-layout-news .is-news-card-date {
+  font-family: var(--is-news-card-date-font, inherit);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--is-news-card-date-color, #b45309);
+  display: block;
+}
+
 .is-layout-news .is-news-card-title {
   font-weight: 700;
   font-size: 1.1rem;
   color: var(--is-news-card-title-color, #1e2a45);
   line-height: 1.35;
+}
+
+.is-layout-news .is-news-card-caption {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--is-news-card-caption-color, #475569);
+  margin: 0;
 }
 
 .is-layout-news .is-news-card-link {
@@ -379,15 +413,29 @@
 
 .is-lightbox-caption {
   color: #fff;
+  text-align: center;
+  cursor: default;
+  max-width: 90vw;
+  word-break: break-word;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  opacity: 0.95;
+}
+
+.is-lightbox-caption-title {
   font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  text-align: center;
-  opacity: 0.9;
-  cursor: default;
-  max-width: 90vw;
-  word-break: break-word;
+}
+
+.is-lightbox-caption-sub {
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  opacity: 0.8;
+  line-height: 1.5;
 }
 
 .is-lightbox-close {

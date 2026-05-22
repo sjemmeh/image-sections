@@ -1,6 +1,6 @@
 {
   "name": "image-sections",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "displayName": "Image Sections",
   "description": "Herbruikbare afbeeldingssecties voor projectkaarten en galerijen. Gebruik {{plugin:image-section collection=\"slug\"}} in pagina-inhoud.",
   "author": "De Haas Digital",
