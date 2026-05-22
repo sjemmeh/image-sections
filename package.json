@@ -1,0 +1,8 @@
+{
+  "name": "image-sections",
+  "private": true,
+  "description": "De Haas Digital — image-sections plugin (test-only package.json; the plugin itself is loaded via its plugin.json manifest)",
+  "scripts": {
+    "test": "node --test __test__/*.test.js"
+  }
+}

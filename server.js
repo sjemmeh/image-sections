@@ -632,6 +632,31 @@ module.exports = {
     ].join('\n');
   },
 
+  /**
+   * Internal helpers exposed for the test suite. Not part of the plugin SPI —
+   * the plugin host only consumes registerHeadSnippet / registerShortcodes.
+   * Stable enough for tests, but treat as private from any other consumer.
+   */
+  __test: {
+    escapeHtml,
+    normalizePluginMediaUrl,
+    buildThumbUrl,
+    buildFullUrl,
+    sortByOrder,
+    animateAttr,
+    coerceEmbedUrl,
+    buildSrcsetAttrs,
+    buildLqipUrl,
+    resolveAlt,
+    formatItemDate,
+    sanitizeCssColor,
+    sanitizeSliderHeight,
+    sliderTransition,
+    sliderCaptionPos,
+    eagerCountFor,
+    lightboxEligible,
+  },
+
   registerShortcodes: (_config, context) => {
     return [
       {
