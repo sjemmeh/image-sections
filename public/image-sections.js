@@ -232,7 +232,128 @@
     });
   }
 
+  function initSliders() {
+    var prefersReduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    document.querySelectorAll('.is-layout-slider').forEach(function (root) {
+      var slides = Array.from(root.querySelectorAll('.is-slide'));
+      if (slides.length <= 1) {
+        if (slides[0]) slides[0].classList.add('is-slide-active');
+        return;
+      }
+
+      var dotsContainer = root.querySelector('.is-slider-dots');
+      var prevBtn = root.querySelector('.is-slider-prev');
+      var nextBtn = root.querySelector('.is-slider-next');
+      var track = root.querySelector('.is-slider-track');
+
+      var autoplay = root.dataset.isAutoplay === '1' && !prefersReduce;
+      var interval = Number(root.dataset.isInterval) || 5000;
+      var timer = null;
+      var current = 0;
+      var isSlide = root.classList.contains('is-slider-slide');
+
+      // Build dot pagination buttons. ARIA tab pattern — selected dot
+      // gets aria-selected="true", others get "false".
+      var dots = [];
+      if (dotsContainer) {
+        slides.forEach(function (_slide, i) {
+          var dot = document.createElement('button');
+          dot.type = 'button';
+          dot.className = 'is-slider-dot';
+          dot.setAttribute('role', 'tab');
+          dot.setAttribute('aria-label', 'Slide ' + (i + 1));
+          dot.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+          dot.addEventListener('click', function () { goTo(i, true); });
+          dotsContainer.appendChild(dot);
+          dots.push(dot);
+        });
+      }
+
+      function applyTransform() {
+        if (isSlide && track) {
+          track.style.setProperty('--is-slider-offset', String(current));
+        }
+      }
+
+      function goTo(idx, userInitiated) {
+        var n = slides.length;
+        current = ((idx % n) + n) % n;
+
+        slides.forEach(function (slide, i) {
+          slide.classList.toggle('is-slide-active', i === current);
+        });
+        dots.forEach(function (dot, i) {
+          dot.classList.toggle('is-active', i === current);
+          dot.setAttribute('aria-selected', i === current ? 'true' : 'false');
+        });
+
+        applyTransform();
+        if (userInitiated) restartTimer();
+      }
+
+      function next() { goTo(current + 1); }
+      function prev() { goTo(current - 1); }
+
+      function startTimer() {
+        if (!autoplay || timer) return;
+        timer = setInterval(next, interval);
+      }
+      function stopTimer() {
+        if (timer) { clearInterval(timer); timer = null; }
+      }
+      function restartTimer() {
+        if (!autoplay) return;
+        stopTimer();
+        startTimer();
+      }
+
+      if (prevBtn) prevBtn.addEventListener('click', function () { prev(); restartTimer(); });
+      if (nextBtn) nextBtn.addEventListener('click', function () { next(); restartTimer(); });
+
+      // Pause autoplay on hover or keyboard focus inside the carousel
+      // so users actively engaging with content don't lose their place.
+      root.addEventListener('mouseenter', stopTimer);
+      root.addEventListener('mouseleave', startTimer);
+      root.addEventListener('focusin', stopTimer);
+      root.addEventListener('focusout', function (e) {
+        // Only resume when focus actually leaves the carousel (not when
+        // moving between internal elements).
+        if (!root.contains(e.relatedTarget)) startTimer();
+      });
+
+      // Keyboard arrows on the carousel container
+      root.setAttribute('tabindex', '0');
+      root.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); restartTimer(); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); next(); restartTimer(); }
+      });
+
+      // Touch swipe (no library — minimum viable threshold detection).
+      var touchStartX = 0;
+      var touchStartTime = 0;
+      root.addEventListener('touchstart', function (e) {
+        touchStartX = e.changedTouches[0].clientX;
+        touchStartTime = Date.now();
+        stopTimer();
+      }, { passive: true });
+      root.addEventListener('touchend', function (e) {
+        var dx = e.changedTouches[0].clientX - touchStartX;
+        var dt = Date.now() - touchStartTime;
+        // Swipe needs >40px in <500ms — anything else is a tap or a drag.
+        if (Math.abs(dx) > 40 && dt < 500) {
+          if (dx < 0) next(); else prev();
+        }
+        restartTimer();
+      }, { passive: true });
+
+      goTo(0);
+      startTimer();
+    });
+  }
+
   function init() {
+    initSliders();
     initNewsScrollers();
 
     var sections = document.querySelectorAll('.is-has-lightbox');

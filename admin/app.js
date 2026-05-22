@@ -53,9 +53,33 @@ const LOCALES = {
     'option.layout.cards': 'Kaarten — titel + knop',
     'option.layout.grid': 'Galerij grid',
     'option.layout.news': 'Nieuws — horizontaal scrollend',
+    'option.layout.slider': 'Slider — full-width hero met autoplay',
     'option.layout.cards.short': 'Kaarten',
     'option.layout.grid.short': 'Galerij grid',
     'option.layout.news.short': 'Nieuws',
+    'option.layout.slider.short': 'Slider',
+    'label.sliderAutoplay': 'AUTOPLAY',
+    'label.sliderInterval': 'INTERVAL (MS)',
+    'label.sliderInterval.hint': 'Tussen 2000 en 20000 ms.',
+    'label.sliderTransition': 'OVERGANG',
+    'label.sliderHeight': 'HOOGTE',
+    'label.sliderHeight.hint': 'CSS-lengte (60vh, 400px, 32rem, …).',
+    'label.sliderCaptionPos': 'POSITIE ONDERSCHRIFT',
+    'label.sliderShowDots': 'PUNTEN',
+    'label.sliderShowArrows': 'PIJLEN',
+    'toggle.sliderAutoplay.title': 'Automatisch doorlopen',
+    'toggle.sliderAutoplay.desc': 'Uitgeschakeld bij prefers-reduced-motion',
+    'toggle.sliderShowDots.title': 'Punten tonen',
+    'toggle.sliderShowArrows.title': 'Pijlen tonen',
+    'option.sliderTransition.fade': 'Fade',
+    'option.sliderTransition.slide': 'Slide',
+    'option.sliderCaptionPos.bottomLeft': 'Onder — links',
+    'option.sliderCaptionPos.bottomCenter': 'Onder — midden',
+    'option.sliderCaptionPos.bottomRight': 'Onder — rechts',
+    'option.sliderCaptionPos.center': 'Midden',
+    'option.sliderCaptionPos.topLeft': 'Boven — links',
+    'option.sliderCaptionPos.topCenter': 'Boven — midden',
+    'option.sliderCaptionPos.topRight': 'Boven — rechts',
     'option.titlePos.below': 'Onder afbeelding',
     'option.titlePos.above': 'Boven afbeelding',
     'option.titleAlign.left': 'Links',
@@ -197,9 +221,33 @@ const LOCALES = {
     'option.layout.cards': 'Cards — title + button',
     'option.layout.grid': 'Gallery grid',
     'option.layout.news': 'News — horizontal scroll',
+    'option.layout.slider': 'Slider — full-width hero with autoplay',
     'option.layout.cards.short': 'Cards',
     'option.layout.grid.short': 'Gallery grid',
     'option.layout.news.short': 'News',
+    'option.layout.slider.short': 'Slider',
+    'label.sliderAutoplay': 'AUTOPLAY',
+    'label.sliderInterval': 'INTERVAL (MS)',
+    'label.sliderInterval.hint': 'Between 2000 and 20000 ms.',
+    'label.sliderTransition': 'TRANSITION',
+    'label.sliderHeight': 'HEIGHT',
+    'label.sliderHeight.hint': 'CSS length (60vh, 400px, 32rem, …).',
+    'label.sliderCaptionPos': 'CAPTION POSITION',
+    'label.sliderShowDots': 'DOTS',
+    'label.sliderShowArrows': 'ARROWS',
+    'toggle.sliderAutoplay.title': 'Cycle automatically',
+    'toggle.sliderAutoplay.desc': 'Disabled when prefers-reduced-motion is on',
+    'toggle.sliderShowDots.title': 'Show dots',
+    'toggle.sliderShowArrows.title': 'Show arrows',
+    'option.sliderTransition.fade': 'Fade',
+    'option.sliderTransition.slide': 'Slide',
+    'option.sliderCaptionPos.bottomLeft': 'Bottom — left',
+    'option.sliderCaptionPos.bottomCenter': 'Bottom — center',
+    'option.sliderCaptionPos.bottomRight': 'Bottom — right',
+    'option.sliderCaptionPos.center': 'Center',
+    'option.sliderCaptionPos.topLeft': 'Top — left',
+    'option.sliderCaptionPos.topCenter': 'Top — center',
+    'option.sliderCaptionPos.topRight': 'Top — right',
     'option.titlePos.below': 'Below image',
     'option.titlePos.above': 'Above image',
     'option.titleAlign.left': 'Left',
@@ -436,6 +484,22 @@ const el = {
   showTitleGroup: document.getElementById('show-title-group'),
   titlePositionGroup: document.getElementById('title-position-group'),
   titleAlignGroup: document.getElementById('title-align-group'),
+
+  editSliderAutoplaySwitch: document.getElementById('edit-slider-autoplay-switch'),
+  editSliderInterval: document.getElementById('edit-slider-interval'),
+  editSliderTransition: document.getElementById('edit-slider-transition'),
+  editSliderHeight: document.getElementById('edit-slider-height'),
+  editSliderCaptionPos: document.getElementById('edit-slider-caption-pos'),
+  editSliderDotsSwitch: document.getElementById('edit-slider-dots-switch'),
+  editSliderArrowsSwitch: document.getElementById('edit-slider-arrows-switch'),
+  sliderAutoplayGroup: document.getElementById('slider-autoplay-group'),
+  sliderIntervalGroup: document.getElementById('slider-interval-group'),
+  sliderTransitionGroup: document.getElementById('slider-transition-group'),
+  sliderHeightGroup: document.getElementById('slider-height-group'),
+  sliderCaptionPosGroup: document.getElementById('slider-caption-pos-group'),
+  sliderDotsGroup: document.getElementById('slider-dots-group'),
+  sliderArrowsGroup: document.getElementById('slider-arrows-group'),
+
   saveSettingsBtn: document.getElementById('save-settings-btn'),
 
   itemFile: document.getElementById('item-file'),
@@ -689,17 +753,30 @@ function updateLayoutFields() {
   var layout = el.editLayout.value;
   var gridTitleEnabled = layout === 'grid' && isSwitchOn(el.editShowTitleSwitch);
   var isNews = layout === 'news';
+  var isSlider = layout === 'slider';
 
   el.lightboxGroup.style.display = '';
-  el.btnTextGroup.style.display = (layout === 'cards' || isNews) ? '' : 'none';
-  el.itemTitleGroup.style.display = (layout === 'cards' || isNews || gridTitleEnabled) ? '' : 'none';
-  el.itemLinkGroup.style.display = (layout === 'cards' || isNews) ? '' : 'none';
+  // Slider also uses the buttonText (CTA on each slide) — share the field.
+  el.btnTextGroup.style.display = (layout === 'cards' || isNews || isSlider) ? '' : 'none';
+  // Title is editable everywhere except plain grid without showTitle.
+  el.itemTitleGroup.style.display = (layout === 'cards' || isNews || isSlider || gridTitleEnabled) ? '' : 'none';
+  el.itemLinkGroup.style.display = (layout === 'cards' || isNews || isSlider) ? '' : 'none';
 
   el.showTitleGroup.style.display = layout === 'grid' ? '' : 'none';
 
   var showTitleOptions = layout === 'cards' || gridTitleEnabled;
   el.titlePositionGroup.style.display = showTitleOptions ? '' : 'none';
   el.titleAlignGroup.style.display = showTitleOptions ? '' : 'none';
+
+  // Slider-specific settings — show only when layout === 'slider'.
+  var sliderDisplay = isSlider ? '' : 'none';
+  if (el.sliderAutoplayGroup) el.sliderAutoplayGroup.style.display = sliderDisplay;
+  if (el.sliderIntervalGroup) el.sliderIntervalGroup.style.display = sliderDisplay;
+  if (el.sliderTransitionGroup) el.sliderTransitionGroup.style.display = sliderDisplay;
+  if (el.sliderHeightGroup) el.sliderHeightGroup.style.display = sliderDisplay;
+  if (el.sliderCaptionPosGroup) el.sliderCaptionPosGroup.style.display = sliderDisplay;
+  if (el.sliderDotsGroup) el.sliderDotsGroup.style.display = sliderDisplay;
+  if (el.sliderArrowsGroup) el.sliderArrowsGroup.style.display = sliderDisplay;
 }
 
 // ---- Collections ----
@@ -902,6 +979,13 @@ async function createCollection() {
       titleAlign: 'left',
       buttonText: defaultButtonText,
       backgroundColor: '',
+      sliderAutoplay: true,
+      sliderInterval: 5000,
+      sliderTransition: 'fade',
+      sliderHeight: '60vh',
+      sliderCaptionPos: 'bottom-left',
+      sliderShowDots: true,
+      sliderShowArrows: true,
     });
 
     el.newColName.value = '';
@@ -1005,6 +1089,15 @@ async function openEditor(slug) {
     el.editBgColorSwatch.style.background = 'transparent';
   }
 
+  // Slider-specific settings. Defaults match server.js renderSlider().
+  setSwitchState(el.editSliderAutoplaySwitch, col?.value?.sliderAutoplay !== false && col?.value?.sliderAutoplay !== 'false');
+  el.editSliderInterval.value = String(col?.value?.sliderInterval || 5000);
+  el.editSliderTransition.value = col?.value?.sliderTransition || 'fade';
+  el.editSliderHeight.value = col?.value?.sliderHeight || '60vh';
+  el.editSliderCaptionPos.value = col?.value?.sliderCaptionPos || 'bottom-left';
+  setSwitchState(el.editSliderDotsSwitch, col?.value?.sliderShowDots !== false && col?.value?.sliderShowDots !== 'false');
+  setSwitchState(el.editSliderArrowsSwitch, col?.value?.sliderShowArrows !== false && col?.value?.sliderShowArrows !== 'false');
+
   updateLayoutFields();
   resetItemForm();
   await loadItems();
@@ -1030,6 +1123,12 @@ async function saveSettings() {
     return;
   }
 
+  // Clamp the interval client-side too so the form can't write an
+  // out-of-range value the server would silently snap anyway.
+  var sliderInterval = Number(el.editSliderInterval.value);
+  if (!Number.isFinite(sliderInterval) || sliderInterval < 2000) sliderInterval = 5000;
+  sliderInterval = Math.max(2000, Math.min(20000, sliderInterval));
+
   try {
     await api.upsertDataRecord(SCOPES.collections, colKey(state.selectedSlug), {
       slug: state.selectedSlug,
@@ -1042,6 +1141,13 @@ async function saveSettings() {
       titleAlign: el.editTitleAlign.value,
       buttonText: el.editBtnText.value.trim() || (activeLocale() === 'en' ? 'View project' : 'Bekijk project'),
       backgroundColor: bgRaw,
+      sliderAutoplay: isSwitchOn(el.editSliderAutoplaySwitch),
+      sliderInterval: sliderInterval,
+      sliderTransition: el.editSliderTransition.value,
+      sliderHeight: el.editSliderHeight.value.trim() || '60vh',
+      sliderCaptionPos: el.editSliderCaptionPos.value,
+      sliderShowDots: isSwitchOn(el.editSliderDotsSwitch),
+      sliderShowArrows: isSwitchOn(el.editSliderArrowsSwitch),
     });
 
     await loadCollections();
@@ -1709,6 +1815,9 @@ el.editLayout.addEventListener('change', updateLayoutFields);
 
 bindSwitch(el.editLightboxSwitch);
 bindSwitch(el.editShowTitleSwitch, updateLayoutFields);
+bindSwitch(el.editSliderAutoplaySwitch);
+bindSwitch(el.editSliderDotsSwitch);
+bindSwitch(el.editSliderArrowsSwitch);
 
 // Background color: keep picker + text input + swatch in sync
 el.editBgColorPicker.addEventListener('input', function () {
