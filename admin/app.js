@@ -21,6 +21,15 @@ const state = {
   // Populated asynchronously after collections render so the list shows a
   // loading-neutral state first, then fills in "used on N pages" badges.
   references: {},
+  // Plugin-level config (from plugin.json configSchema, set in main admin's
+  // generic Plugins page). Defaults baked in here in case the fetch fails.
+  pluginConfig: {
+    defaultLayout: 'cards',
+    defaultColumns: 3,
+    defaultButtonText: 'Bekijk project',
+    lightboxEnabledByDefault: false,
+  },
+  collectionSearchTerm: '',
 };
 
 const el = {
@@ -37,6 +46,9 @@ const el = {
   newColSlug: document.getElementById('new-col-slug'),
   newColLayout: document.getElementById('new-col-layout'),
   createColBtn: document.getElementById('create-col-btn'),
+
+  collectionsFilterRow: document.getElementById('collections-filter-row'),
+  collectionsSearch: document.getElementById('collections-search'),
 
   editName: document.getElementById('edit-name'),
   editLayout: document.getElementById('edit-layout'),
@@ -385,6 +397,11 @@ function renderCollectionsList() {
     return String(a.value?.name || '').localeCompare(String(b.value?.name || ''));
   });
 
+  // Show the search row only when there are enough collections to make it useful.
+  if (el.collectionsFilterRow) {
+    el.collectionsFilterRow.style.display = sorted.length >= 5 ? '' : 'none';
+  }
+
   if (sorted.length === 0) {
     el.collectionsList.innerHTML =
       '<div class="card"><div class="empty">' +
@@ -392,6 +409,24 @@ function renderCollectionsList() {
       '<p class="sub">Maak hierboven je eerste collectie aan om te beginnen.</p>' +
       '</div></div>';
     return;
+  }
+
+  // Client-side filter by name or slug.
+  var q = state.collectionSearchTerm.trim().toLowerCase();
+  if (q) {
+    sorted = sorted.filter(function (r) {
+      var name = String(r.value?.name || '').toLowerCase();
+      var slug = String(r.value?.slug || r.key || '').toLowerCase();
+      return name.indexOf(q) >= 0 || slug.indexOf(q) >= 0;
+    });
+    if (sorted.length === 0) {
+      el.collectionsList.innerHTML =
+        '<div class="card"><div class="empty compact">' +
+        '<h3 style="font-size:22px;">Geen resultaten</h3>' +
+        '<p class="sub">Pas je zoekopdracht aan of maak een nieuwe collectie aan.</p>' +
+        '</div></div>';
+      return;
+    }
   }
 
   var listWrap = document.createElement('div');
@@ -473,17 +508,22 @@ async function createCollection() {
     return;
   }
 
+  var cfg = state.pluginConfig;
+  var defaultButtonText = layout === 'news'
+    ? 'Lees het bericht'
+    : (cfg.defaultButtonText || 'Bekijk project');
+
   try {
     await api.upsertDataRecord(SCOPES.collections, colKey(slug), {
       slug: slug,
       name: name,
       layout: layout,
-      columns: 3,
-      lightbox: false,
+      columns: Number(cfg.defaultColumns) || 3,
+      lightbox: cfg.lightboxEnabledByDefault === true,
       titlePosition: 'below',
       showTitle: false,
       titleAlign: 'left',
-      buttonText: layout === 'news' ? 'Lees het bericht' : 'Bekijk project',
+      buttonText: defaultButtonText,
       backgroundColor: '',
     });
 
@@ -1050,6 +1090,13 @@ async function moveItem(currentIndex, direction) {
 // ---- Event listeners ----
 
 el.createColBtn.addEventListener('click', function () { void createCollection(); });
+
+if (el.collectionsSearch) {
+  el.collectionsSearch.addEventListener('input', function () {
+    state.collectionSearchTerm = el.collectionsSearch.value;
+    renderCollectionsList();
+  });
+}
 el.backBtn.addEventListener('click', closeEditor);
 el.saveSettingsBtn.addEventListener('click', function () { void saveSettings(); });
 el.addItemBtn.addEventListener('click', function () { void addOrUpdateItem(); });
@@ -1128,11 +1175,27 @@ document.addEventListener('keydown', function (e) {
   }
 });
 
+async function loadPluginConfig() {
+  try {
+    var cfg = await api.getConfig();
+    state.pluginConfig = Object.assign({}, state.pluginConfig, cfg || {});
+    if (typeof state.pluginConfig.defaultLayout === 'string' && el.newColLayout) {
+      var allowed = ['cards', 'grid', 'news'];
+      if (allowed.indexOf(state.pluginConfig.defaultLayout) >= 0) {
+        el.newColLayout.value = state.pluginConfig.defaultLayout;
+      }
+    }
+  } catch (_err) {
+    // Config endpoint unavailable — keep baked-in defaults.
+  }
+}
+
 // ---- Init ----
 
 (async function init() {
   try {
     updateLayoutFields();
+    await loadPluginConfig();
     await loadCollections();
   } catch (err) {
     console.error(err);
