@@ -17,6 +17,10 @@ const state = {
   feedbackTimer: null,
   pendingConfirm: null,
   draggedItemKey: null,
+  // Map of collection slug -> array of { id, slug, title, published }.
+  // Populated asynchronously after collections render so the list shows a
+  // loading-neutral state first, then fills in "used on N pages" badges.
+  references: {},
 };
 
 const el = {
@@ -67,6 +71,7 @@ const el = {
 
   confirmModal: document.getElementById('confirm-modal'),
   confirmModalText: document.getElementById('confirm-modal-text'),
+  confirmModalBody: document.getElementById('confirm-modal-body'),
   confirmModalOk: document.getElementById('confirm-modal-ok'),
   confirmModalCancel: document.getElementById('confirm-modal-cancel'),
   confirmModalClose: document.getElementById('confirm-modal-close'),
@@ -271,14 +276,23 @@ function bindSwitch(node, onChange) {
 
 // ---- Confirmation modal ----
 
-function openConfirm(message, onConfirm) {
+function openConfirm(message, onConfirm, bodyHtml) {
   el.confirmModalText.textContent = message;
+  if (bodyHtml) {
+    el.confirmModalBody.innerHTML = bodyHtml;
+    el.confirmModalBody.style.display = '';
+  } else {
+    el.confirmModalBody.innerHTML = '';
+    el.confirmModalBody.style.display = 'none';
+  }
   state.pendingConfirm = onConfirm;
   el.confirmModal.style.display = 'flex';
 }
 
 function closeConfirm() {
   state.pendingConfirm = null;
+  el.confirmModalBody.innerHTML = '';
+  el.confirmModalBody.style.display = 'none';
   el.confirmModal.style.display = 'none';
 }
 
@@ -306,6 +320,62 @@ function updateLayoutFields() {
 async function loadCollections() {
   state.collections = await api.listDataScope(SCOPES.collections);
   renderCollectionsList();
+  // Fire-and-forget: pages-references is non-essential for first paint,
+  // so don't block list rendering on it. Errors are swallowed silently
+  // so the admin still works against backends that lack the endpoint.
+  void loadReferences();
+}
+
+async function loadReferences() {
+  var slugs = state.collections
+    .map(function (r) { return r.value?.slug; })
+    .filter(Boolean);
+
+  if (slugs.length === 0) return;
+
+  try {
+    var results = await Promise.allSettled(slugs.map(function (slug) {
+      return api.findShortcodeReferences('image-section', 'collection', slug);
+    }));
+    results.forEach(function (res, i) {
+      var slug = slugs[i];
+      state.references[slug] = res.status === 'fulfilled' && Array.isArray(res.value) ? res.value : [];
+    });
+    renderCollectionsList();
+  } catch (_err) {
+    // Endpoint unavailable or other failure — silently leave the
+    // badges off; everything else keeps working.
+  }
+}
+
+function referenceBadgeHtml(slug) {
+  var refs = state.references[slug];
+  if (!Array.isArray(refs)) return '';  // not yet loaded
+  if (refs.length === 0) {
+    return '<span class="status-pill draft" title="Geen pagina\'s gebruiken deze collectie">Ongebruikt</span>';
+  }
+  var label = refs.length === 1 ? 'Gebruikt op 1 pagina' : 'Gebruikt op ' + refs.length + ' pagina\'s';
+  var titles = refs.map(function (r) { return r.title; }).join(' · ');
+  return '<span class="status-pill" title="' + esc(titles) + '">' + esc(label) + '</span>';
+}
+
+function referenceListHtml(slug) {
+  var refs = state.references[slug];
+  if (!Array.isArray(refs) || refs.length === 0) return '';
+  var rows = refs.map(function (r) {
+    var statusLabel = r.published ? 'gepubliceerd' : 'concept';
+    return (
+      '<li style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--hairline);">' +
+      '<span class="slug-tag">/' + esc(r.slug) + '</span>' +
+      '<span style="flex:1; font-size:13px; color:var(--text);">' + esc(r.title) + '</span>' +
+      '<span class="status-pill' + (r.published ? '' : ' draft') + '">' + statusLabel + '</span>' +
+      '</li>'
+    );
+  }).join('');
+  return (
+    '<p class="modal-copy" style="margin-bottom:8px;">Deze collectie wordt nog gebruikt op:</p>' +
+    '<ul style="list-style:none; padding:0; margin:0;">' + rows + '</ul>'
+  );
 }
 
 function renderCollectionsList() {
@@ -353,6 +423,7 @@ function renderCollectionsList() {
       '<span class="t">' + esc(name) + '</span>' +
       '<span class="slug-tag">/' + esc(slug) + '</span>' +
       '<span class="status-pill draft" style="text-transform:lowercase;">' + esc(layout) + '</span>' +
+      referenceBadgeHtml(slug) +
       '</div>' +
       '<div class="meta">' +
       '<span>Shortcode: <b>' + esc(shortcode) + '</b></span>' +
@@ -374,6 +445,7 @@ function renderCollectionsList() {
       openConfirm(
         'Collectie "' + name + '" en alle afbeeldingen verwijderen?',
         function () { void deleteCollection(slug); },
+        referenceListHtml(slug),
       );
     });
 
