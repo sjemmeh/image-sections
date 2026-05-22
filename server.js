@@ -2,9 +2,25 @@
  * Image Sections Plugin
  *
  * Provides the {{plugin:image-section collection="slug"}} shortcode for rendering
- * image collections in two layout modes: "cards" (project cards with CTA buttons)
- * and "grid" (gallery grid with optional lightbox).
+ * image collections in three layout modes: "cards" (project cards with CTA buttons),
+ * "grid" (gallery with optional lightbox), and "news" (horizontally scrolling cards).
  */
+
+const path = require('path');
+const fs = require('fs');
+
+// Cache-bust public assets with the plugin version from plugin.json so each
+// release auto-invalidates browser caches. Loaded once at module init.
+const ASSET_VERSION = (function () {
+  try {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(__dirname, 'plugin.json'), 'utf8'),
+    );
+    return String(manifest.version || '0');
+  } catch (_err) {
+    return '0';
+  }
+})();
 
 function escapeHtml(value) {
   return String(value || '')
@@ -235,9 +251,10 @@ module.exports = {
     const pluginName = context?.pluginName || 'image-sections';
     const assetBase = `/api/plugins/${encodeURIComponent(pluginName)}/assets`;
 
+    const v = encodeURIComponent(ASSET_VERSION);
     return [
-      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=17" />`,
-      `<script defer src="${assetBase}/image-sections.js?v=17"></script>`,
+      `<link rel="stylesheet" href="${assetBase}/image-sections.css?v=${v}" />`,
+      `<script defer src="${assetBase}/image-sections.js?v=${v}"></script>`,
     ].join('\n');
   },
 

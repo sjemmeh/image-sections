@@ -84,7 +84,35 @@ const ICON = {
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>',
   image:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+  copy:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
 };
+
+function shortcodeFor(slug) {
+  return '{{plugin:image-section collection="' + slug + '"}}';
+}
+
+async function copyShortcode(slug) {
+  var code = shortcodeFor(slug);
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(code);
+    } else {
+      // Fallback for very old browsers / non-secure contexts.
+      var ta = document.createElement('textarea');
+      ta.value = code;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    notify('Shortcode gekopieerd');
+  } catch (err) {
+    notify(err.message || 'Kopiëren mislukt', 'error');
+  }
+}
 
 const CONVERTIBLE_TO_WEBP = new Set(['image/png', 'image/jpeg', 'image/gif']);
 
@@ -309,7 +337,7 @@ function renderCollectionsList() {
     var slug = record.value?.slug || record.key;
     var name = record.value?.name || slug;
     var layout = record.value?.layout || 'cards';
-    var shortcode = '{{plugin:image-section collection="' + slug + '"}}';
+    var shortcode = shortcodeFor(slug);
 
     var row = document.createElement('div');
     row.className = 'list-row';
@@ -326,10 +354,14 @@ function renderCollectionsList() {
       '</div>' +
       '</div>' +
       '<div class="actions">' +
+      '<button class="act" data-action="copy" title="Shortcode kopiëren" aria-label="Shortcode kopiëren">' + ICON.copy + '</button>' +
       '<button class="act" data-action="open" title="Bewerken" aria-label="Bewerken">' + ICON.edit + '</button>' +
       '<button class="act danger" data-action="delete" title="Verwijderen" aria-label="Verwijderen">' + ICON.trash + '</button>' +
       '</div>';
 
+    row.querySelector('[data-action="copy"]').addEventListener('click', function () {
+      void copyShortcode(slug);
+    });
     row.querySelector('[data-action="open"]').addEventListener('click', function () {
       openEditor(slug);
     });
@@ -430,8 +462,16 @@ async function openEditor(slug) {
 
   el.editorTitle.innerHTML = esc(name) + ' <em>bewerken</em>';
   el.editorShortcode.innerHTML =
-    'Shortcode: <code style="font-family:var(--mono); font-size:12px; color:var(--accent-2); background:var(--surface-2); padding:2px 8px; border-radius:4px; border:1px solid var(--hairline);">{{plugin:image-section collection="' +
-    esc(slug) + '"}}</code>';
+    '<span style="display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap;">' +
+    '<span>Shortcode:</span>' +
+    '<code style="font-family:var(--mono); font-size:12px; color:var(--accent-2); background:var(--surface-2); padding:2px 8px; border-radius:4px; border:1px solid var(--hairline);">' +
+    esc(shortcodeFor(slug)) + '</code>' +
+    '<button class="act" data-editor-copy title="Shortcode kopiëren" aria-label="Shortcode kopiëren">' + ICON.copy + '</button>' +
+    '</span>';
+  var editorCopyBtn = el.editorShortcode.querySelector('[data-editor-copy]');
+  if (editorCopyBtn) {
+    editorCopyBtn.addEventListener('click', function () { void copyShortcode(slug); });
+  }
 
   el.editName.value = col?.value?.name || '';
   el.editLayout.value = col?.value?.layout || 'cards';

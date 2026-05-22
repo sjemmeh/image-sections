@@ -423,3 +423,21 @@
 .is-lightbox-next {
   right: 0.5rem;
 }
+
+/* ----- Reduced motion ----- */
+/* Disable purely decorative motion (image hover-zoom, smooth-scroll snap)
+   for users who prefer reduced motion. Opacity/color transitions are left
+   intact since they don't trigger vestibular discomfort. */
+@media (prefers-reduced-motion: reduce) {
+  .is-layout-cards .is-card-image img,
+  .is-layout-grid .is-grid-item img {
+    transition: none;
+  }
+  .is-layout-cards .is-card:hover .is-card-image img,
+  .is-layout-grid .is-grid-item:hover img {
+    transform: none;
+  }
+  .is-layout-news .is-news-scroll {
+    scroll-behavior: auto;
+  }
+}
