@@ -67,7 +67,18 @@ function sortByOrder(a, b) {
   return String(a?.value?.title || '').localeCompare(String(b?.value?.title || ''));
 }
 
-function buildCardItem(item, lightbox, bgColor, buttonText) {
+/**
+ * Build the data-animate attribute string for staggered entrance animations.
+ * Cycles delays over 3 items (0ms, 100ms, 200ms) so each row of a 3-col
+ * grid starts at 0ms — works visually for 2/3/4-col layouts and horizontal
+ * news scrollers alike.
+ */
+function animateAttr(idx) {
+  const delay = (idx % 3) * 100;
+  return delay === 0 ? ' data-animate' : ` data-animate data-animate-delay="${delay}"`;
+}
+
+function buildCardItem(item, lightbox, bgColor, buttonText, idx) {
   const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
   const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
   const fullUrl = escapeHtml(buildFullUrl(rawUrl));
@@ -86,7 +97,7 @@ function buildCardItem(item, lightbox, bgColor, buttonText) {
   const titleAttr = title ? ` data-is-title="${title}"` : '';
 
   return `
-    <div class="${cardClass}"${lbAttr}${titleAttr}${styleAttr}>
+    <div class="${cardClass}"${lbAttr}${titleAttr}${styleAttr}${animateAttr(idx)}>
       <div class="is-card-image">
         <img src="${thumbUrl}" alt="${title}" loading="lazy" />
       </div>
@@ -109,7 +120,7 @@ function sanitizeCssColor(value) {
   return '';
 }
 
-function buildGridItem(item, lightbox, showTitle, bgColor) {
+function buildGridItem(item, lightbox, showTitle, bgColor, idx) {
   const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
   const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
   const fullUrl = escapeHtml(buildFullUrl(rawUrl));
@@ -124,7 +135,7 @@ function buildGridItem(item, lightbox, showTitle, bgColor) {
   const titleAttr = title ? ` data-is-title="${title}"` : '';
 
   return `
-    <div class="is-grid-item"${lbAttr}${titleAttr}${styleAttr}>
+    <div class="is-grid-item"${lbAttr}${titleAttr}${styleAttr}${animateAttr(idx)}>
       <img src="${thumbUrl}" alt="${title}" loading="lazy" />
       ${captionHtml}
     </div>
@@ -138,7 +149,7 @@ function renderCards(collection, items) {
   const columns = Number(collection.columns) || 3;
   const bgColor = sanitizeCssColor(collection.backgroundColor);
   const buttonText = collection.buttonText || 'Bekijk project';
-  const itemsHtml = items.map((item) => buildCardItem(item, lightbox, bgColor, buttonText)).join('');
+  const itemsHtml = items.map((item, idx) => buildCardItem(item, lightbox, bgColor, buttonText, idx)).join('');
 
   const classes = [
     'is-section',
@@ -157,7 +168,7 @@ function renderCards(collection, items) {
   `;
 }
 
-function buildNewsItem(item, buttonText, lightbox) {
+function buildNewsItem(item, buttonText, lightbox, idx) {
   const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
   const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
   const fullUrl = escapeHtml(buildFullUrl(rawUrl));
@@ -173,7 +184,7 @@ function buildNewsItem(item, buttonText, lightbox) {
   const titleAttr = title ? ` data-is-title="${title}"` : '';
 
   return `
-    <div class="is-news-card"${lbAttr}${titleAttr}>
+    <div class="is-news-card"${lbAttr}${titleAttr}${animateAttr(idx)}>
       <div class="is-news-card-image">
         <img src="${thumbUrl}" alt="${title}" loading="lazy" />
       </div>
@@ -188,7 +199,7 @@ function buildNewsItem(item, buttonText, lightbox) {
 function renderNews(collection, items) {
   const lightbox = collection.lightbox === true || collection.lightbox === 'true';
   const buttonText = collection.buttonText || 'Lees het bericht';
-  const itemsHtml = items.map((item) => buildNewsItem(item, buttonText, lightbox)).join('');
+  const itemsHtml = items.map((item, idx) => buildNewsItem(item, buttonText, lightbox, idx)).join('');
   const classes = [
     'is-section',
     'is-layout-news',
@@ -211,7 +222,7 @@ function renderGrid(collection, items) {
   const showTitle = collection.showTitle === true || collection.showTitle === 'true';
   const columns = Number(collection.columns) || 3;
   const bgColor = sanitizeCssColor(collection.backgroundColor);
-  const itemsHtml = items.map((item) => buildGridItem(item, lightbox, showTitle, bgColor)).join('');
+  const itemsHtml = items.map((item, idx) => buildGridItem(item, lightbox, showTitle, bgColor, idx)).join('');
 
   const classes = [
     'is-section',
