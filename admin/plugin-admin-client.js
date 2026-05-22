@@ -46,6 +46,15 @@ export function createPluginAdminClient(pluginName) {
       await parseResponse(response, `Failed to remove ${scope} item`);
     },
 
+    async findShortcodeReferences(shortcode, param, value) {
+      const qs = new URLSearchParams({ shortcode, param, value }).toString();
+      const response = await fetch(`${base}/shortcode-references?${qs}`, {
+        credentials: 'include',
+      });
+      const payload = await parseResponse(response, 'Failed to load shortcode references');
+      return Array.isArray(payload) ? payload : [];
+    },
+
     async uploadFile(file) {
       const formData = new FormData();
       formData.append('file', file);
