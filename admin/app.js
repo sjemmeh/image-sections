@@ -48,6 +48,9 @@ const LOCALES = {
     'label.caption': 'ONDERSCHRIFT',
     'label.date': 'DATUM',
     'label.date.hint': 'Getoond in nieuws-layout.',
+    'label.tags': 'TAGS',
+    'label.tags.hint': 'Filter de output met <code>tag="featured"</code> in de shortcode.',
+    'placeholder.tags': 'komma-gescheiden, bijv. featured, 2025',
     'label.linkUrl': 'LINK URL',
     'label.filter': 'FILTER',
     'option.layout.cards': 'Kaarten — titel + knop',
@@ -229,6 +232,9 @@ const LOCALES = {
     'label.caption': 'CAPTION',
     'label.date': 'DATE',
     'label.date.hint': 'Shown in news layout.',
+    'label.tags': 'TAGS',
+    'label.tags.hint': 'Filter the output with <code>tag="featured"</code> in the shortcode.',
+    'placeholder.tags': 'comma-separated, e.g. featured, 2025',
     'label.linkUrl': 'LINK URL',
     'label.filter': 'FILTER',
     'option.layout.cards': 'Cards — title + button',
@@ -545,6 +551,8 @@ const el = {
   itemCaptionGroup: document.getElementById('item-caption-group'),
   itemDate: document.getElementById('item-date'),
   itemDateGroup: document.getElementById('item-date-group'),
+  itemTags: document.getElementById('item-tags'),
+  itemTagsGroup: document.getElementById('item-tags-group'),
   itemLink: document.getElementById('item-link'),
   itemLinkGroup: document.getElementById('item-link-group'),
   addItemBtn: document.getElementById('add-item-btn'),
@@ -1386,12 +1394,13 @@ async function insertFromLibrary() {
         {
           collectionSlug: state.selectedSlug,
           imageUrl: pick.originalUrl,
-          // No title/alt/caption/date/linkUrl seeding — the user can fill
-          // those in via the per-item edit form after insertion.
+          // No title/alt/caption/date/tags/linkUrl seeding — the user
+          // can fill those in via the per-item edit form after insertion.
           title: '',
           altText: '',
           caption: '',
           date: '',
+          tags: [],
           linkUrl: '',
           sortOrder: baseSortOrder + i,
         },
@@ -1592,6 +1601,7 @@ function resetItemForm() {
   el.itemAlt.value = '';
   el.itemCaption.value = '';
   el.itemDate.value = '';
+  el.itemTags.value = '';
   el.itemLink.value = '';
   el.addItemBtn.textContent = t('btn.addImage');
   el.resetItemBtn.style.display = 'none';
@@ -1633,6 +1643,9 @@ function editItem(record) {
   el.itemCaption.value = record.value?.caption || '';
   // <input type="date"> wants YYYY-MM-DD — slice the ISO string we store.
   el.itemDate.value = (record.value?.date || '').toString().slice(0, 10);
+  // Tags can be stored as array OR comma-string from legacy / hand-edited rows.
+  var rawTags = record.value?.tags;
+  el.itemTags.value = Array.isArray(rawTags) ? rawTags.join(', ') : (rawTags || '');
   el.itemLink.value = record.value?.linkUrl || '';
   el.addItemBtn.textContent = t('btn.updateImage');
   el.resetItemBtn.style.display = '';
@@ -1649,6 +1662,12 @@ async function addOrUpdateItem() {
   var altText = el.itemAlt.value.trim();
   var caption = el.itemCaption.value.trim();
   var date = el.itemDate.value.trim();
+  // Normalise to an array, dropping empty entries — keeps the server-side
+  // tag filter simple (it accepts both array and comma-string anyway).
+  var tags = el.itemTags.value
+    .split(',')
+    .map(function (s) { return s.trim(); })
+    .filter(Boolean);
   var linkUrl = el.itemLink.value.trim();
   var isEditing = Boolean(state.editingItemKey);
 
@@ -1676,6 +1695,7 @@ async function addOrUpdateItem() {
         altText: altText,
         caption: caption,
         date: date,
+        tags: tags,
         linkUrl: linkUrl,
         sortOrder: sortOrder,
       });
@@ -1709,6 +1729,7 @@ async function addOrUpdateItem() {
           altText: altText,
           caption: caption,
           date: date,
+          tags: tags,
           linkUrl: linkUrl,
           sortOrder: baseSortOrder,
         },
@@ -1736,6 +1757,9 @@ async function addOrUpdateItem() {
       var itemAlt = files.length === 1 ? altText : '';
       var itemCaption = files.length === 1 ? caption : '';
       var itemDate = files.length === 1 ? date : '';
+      // Tags can land across the whole batch since they're orthogonal to
+      // image-specific copy — useful for tagging "this whole drop is 2025".
+      var itemTags = tags.slice();
       var itemLink = files.length === 1 ? linkUrl : '';
       await api.upsertDataRecord(
         SCOPES.items,
@@ -1747,6 +1771,7 @@ async function addOrUpdateItem() {
           altText: itemAlt,
           caption: itemCaption,
           date: itemDate,
+          tags: itemTags,
           linkUrl: itemLink,
           sortOrder: baseSortOrder + i,
         },
