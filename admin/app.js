@@ -110,9 +110,22 @@ const LOCALES = {
     'btn.confirm.delete': 'Verwijderen',
     'upload.title': 'Sleep afbeeldingen hierheen',
     'upload.sub': 'of klik om te kiezen — meerdere bestanden toegestaan',
+    'upload.orPick': '— of —',
     'modal.confirm.title': 'Bevestig |verwijdering',
     'modal.confirm.text': 'Dit kan niet ongedaan worden gemaakt.',
     'modal.preview.title': 'Voorbeeld',
+    'modal.library.title': 'Bibliotheek — |kies afbeelding',
+    'modal.library.sub': 'Selecteer een of meerdere afbeeldingen uit de CMS-bibliotheek.',
+    'btn.pickFromLibrary': 'Kies uit CMS-bibliotheek',
+    'btn.libraryInsert': 'Invoegen',
+    'msg.libraryLoading': 'Bibliotheek laden…',
+    'msg.libraryEmpty.title': 'Geen afbeeldingen in de bibliotheek',
+    'msg.libraryEmpty.sub': 'Upload eerst afbeeldingen via Media in het CMS.',
+    'msg.libraryLoadFailed': 'Kon bibliotheek niet laden',
+    'msg.libraryInserted.one': '1 afbeelding uit bibliotheek toegevoegd',
+    'msg.libraryInserted.many': '{n} afbeeldingen uit bibliotheek toegevoegd',
+    'msg.librarySelectedOne': '1 geselecteerd',
+    'msg.librarySelectedMany': '{n} geselecteerd',
     'pill.unused': 'Ongebruikt',
     'pill.usedOne': 'Gebruikt op 1 pagina',
     'pill.usedMany': 'Gebruikt op {n} pagina\'s',
@@ -278,9 +291,22 @@ const LOCALES = {
     'btn.confirm.delete': 'Delete',
     'upload.title': 'Drop images here',
     'upload.sub': 'or click to choose — multiple files allowed',
+    'upload.orPick': '— or —',
     'modal.confirm.title': 'Confirm |deletion',
     'modal.confirm.text': 'This cannot be undone.',
     'modal.preview.title': 'Preview',
+    'modal.library.title': 'Library — |pick image',
+    'modal.library.sub': 'Pick one or more images from the CMS media library.',
+    'btn.pickFromLibrary': 'Pick from CMS library',
+    'btn.libraryInsert': 'Insert',
+    'msg.libraryLoading': 'Loading library…',
+    'msg.libraryEmpty.title': 'No images in the library',
+    'msg.libraryEmpty.sub': 'Upload images via Media in the CMS first.',
+    'msg.libraryLoadFailed': 'Failed to load library',
+    'msg.libraryInserted.one': '1 image added from library',
+    'msg.libraryInserted.many': '{n} images added from library',
+    'msg.librarySelectedOne': '1 selected',
+    'msg.librarySelectedMany': '{n} selected',
     'pill.unused': 'Unused',
     'pill.usedOne': 'Used on 1 page',
     'pill.usedMany': 'Used on {n} pages',
@@ -443,6 +469,11 @@ const state = {
     lightboxEnabledByDefault: false,
   },
   collectionSearchTerm: '',
+  // CMS library picker state — list of image rows from the backend and a Set
+  // of selected filenames (filename is the stable identifier since the URL
+  // is /images/<filename>).
+  libraryImages: [],
+  librarySelected: new Set(),
 };
 
 const el = {
@@ -526,6 +557,16 @@ const el = {
   confirmModalOk: document.getElementById('confirm-modal-ok'),
   confirmModalCancel: document.getElementById('confirm-modal-cancel'),
   confirmModalClose: document.getElementById('confirm-modal-close'),
+
+  openLibraryBtn: document.getElementById('open-library-btn'),
+  libraryModal: document.getElementById('library-modal'),
+  libraryModalClose: document.getElementById('library-modal-close'),
+  libraryModalCancel: document.getElementById('library-modal-cancel'),
+  libraryModalInsert: document.getElementById('library-modal-insert'),
+  libraryGrid: document.getElementById('library-grid'),
+  libraryLoading: document.getElementById('library-loading'),
+  libraryEmpty: document.getElementById('library-empty'),
+  librarySelectionCount: document.getElementById('library-selection-count'),
 };
 
 // ---- Stroke-style inline SVGs (match admin-panel/src/lib/icons.tsx aesthetic) ----
@@ -1225,6 +1266,152 @@ async function handleDrop(draggedKey, targetKey, position) {
 
 // ---- Image preview modal ----
 
+// ---- CMS library picker ----
+
+function updateLibrarySelectionCount() {
+  if (!el.librarySelectionCount) return;
+  var n = state.librarySelected.size;
+  if (n === 0) {
+    el.librarySelectionCount.textContent = '';
+  } else if (n === 1) {
+    el.librarySelectionCount.textContent = t('msg.librarySelectedOne');
+  } else {
+    el.librarySelectionCount.textContent = t('msg.librarySelectedMany', { n: n });
+  }
+  if (el.libraryModalInsert) el.libraryModalInsert.disabled = n === 0;
+}
+
+function renderLibraryGrid() {
+  el.libraryGrid.innerHTML = '';
+  if (state.libraryImages.length === 0) {
+    el.libraryEmpty.style.display = '';
+    return;
+  }
+  el.libraryEmpty.style.display = 'none';
+
+  state.libraryImages.forEach(function (img) {
+    var selected = state.librarySelected.has(img.filename);
+    var tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'library-tile';
+    tile.dataset.filename = img.filename;
+    tile.style.cssText = [
+      'position:relative',
+      'background:var(--surface)',
+      'border:2px solid ' + (selected ? 'var(--accent-2)' : 'var(--hairline)'),
+      'border-radius:10px',
+      'overflow:hidden',
+      'cursor:pointer',
+      'padding:0',
+      'transition:border-color 0.15s ease',
+      'aspect-ratio:1 / 1',
+    ].join(';');
+    tile.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    tile.innerHTML =
+      '<img src="' + esc(img.thumbnailUrl) + '" alt="' + esc(img.filename) + '" ' +
+      'style="width:100%; height:100%; object-fit:cover; display:block;" loading="lazy" />' +
+      // Selected overlay: shaded background + corner check.
+      (selected
+        ? '<div style="position:absolute; inset:0; background:rgba(217,70,239,0.18);"></div>' +
+          '<div style="position:absolute; top:6px; right:6px; width:22px; height:22px; border-radius:50%; background:var(--accent-2); color:#fff; display:grid; place-items:center; font-size:12px; font-weight:700;">✓</div>'
+        : '') +
+      // Filename label.
+      '<div style="position:absolute; bottom:0; left:0; right:0; padding:6px 8px; background:linear-gradient(0deg, rgba(0,0,0,0.7), transparent); color:#fff; font-family:var(--mono); font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' +
+      esc(img.filename) +
+      '</div>';
+
+    tile.addEventListener('click', function () {
+      if (state.librarySelected.has(img.filename)) {
+        state.librarySelected.delete(img.filename);
+      } else {
+        state.librarySelected.add(img.filename);
+      }
+      renderLibraryGrid();
+      updateLibrarySelectionCount();
+    });
+
+    el.libraryGrid.appendChild(tile);
+  });
+}
+
+async function openLibraryPicker() {
+  if (!state.selectedSlug) return;
+  state.librarySelected = new Set();
+  updateLibrarySelectionCount();
+
+  el.libraryModal.style.display = 'flex';
+  el.libraryGrid.innerHTML = '';
+  el.libraryEmpty.style.display = 'none';
+  el.libraryLoading.style.display = '';
+
+  try {
+    state.libraryImages = await api.listCmsImages();
+  } catch (err) {
+    el.libraryLoading.style.display = 'none';
+    notify(err.message || t('msg.libraryLoadFailed'), 'error');
+    closeLibraryPicker();
+    return;
+  }
+
+  el.libraryLoading.style.display = 'none';
+  renderLibraryGrid();
+}
+
+function closeLibraryPicker() {
+  el.libraryModal.style.display = 'none';
+  state.librarySelected = new Set();
+}
+
+async function insertFromLibrary() {
+  if (!state.selectedSlug || state.librarySelected.size === 0) return;
+
+  // Pull the rows that match the selected filenames so we know which
+  // originalUrl to write — preserves picker-order is fine, the user
+  // can drag-reorder afterwards.
+  var picks = state.libraryImages.filter(function (img) {
+    return state.librarySelected.has(img.filename);
+  });
+  if (picks.length === 0) return;
+
+  var baseSortOrder = state.items.length;
+  var createdCount = 0;
+  el.libraryModalInsert.disabled = true;
+
+  for (var i = 0; i < picks.length; i++) {
+    var pick = picks[i];
+    try {
+      await api.upsertDataRecord(
+        SCOPES.items,
+        'item_' + Date.now() + '_lib_' + i,
+        {
+          collectionSlug: state.selectedSlug,
+          imageUrl: pick.originalUrl,
+          // No title/alt/caption/date/linkUrl seeding — the user can fill
+          // those in via the per-item edit form after insertion.
+          title: '',
+          altText: '',
+          caption: '',
+          date: '',
+          linkUrl: '',
+          sortOrder: baseSortOrder + i,
+        },
+      );
+      createdCount += 1;
+    } catch (err) {
+      console.error('Library insert failed for', pick.filename, err);
+    }
+  }
+
+  closeLibraryPicker();
+  await loadItems();
+
+  notify(
+    createdCount === 1
+      ? t('msg.libraryInserted.one')
+      : t('msg.libraryInserted.many', { n: createdCount }),
+  );
+}
+
 function openImagePreview(imageUrl, title) {
   if (!imageUrl) return;
   var existing = document.getElementById('is-preview-modal');
@@ -1818,6 +2005,23 @@ bindSwitch(el.editShowTitleSwitch, updateLayoutFields);
 bindSwitch(el.editSliderAutoplaySwitch);
 bindSwitch(el.editSliderDotsSwitch);
 bindSwitch(el.editSliderArrowsSwitch);
+
+if (el.openLibraryBtn) {
+  el.openLibraryBtn.addEventListener('click', function () { void openLibraryPicker(); });
+}
+if (el.libraryModalClose) el.libraryModalClose.addEventListener('click', closeLibraryPicker);
+if (el.libraryModalCancel) el.libraryModalCancel.addEventListener('click', closeLibraryPicker);
+if (el.libraryModalInsert) el.libraryModalInsert.addEventListener('click', function () { void insertFromLibrary(); });
+if (el.libraryModal) {
+  el.libraryModal.addEventListener('click', function (e) {
+    if (e.target === el.libraryModal) closeLibraryPicker();
+  });
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && el.libraryModal && el.libraryModal.style.display !== 'none') {
+    closeLibraryPicker();
+  }
+});
 
 // Background color: keep picker + text input + swatch in sync
 el.editBgColorPicker.addEventListener('input', function () {

@@ -52,6 +52,14 @@ export function createPluginAdminClient(pluginName) {
       await parseResponse(response, `Failed to remove ${scope} item`);
     },
 
+    async listCmsImages() {
+      const response = await fetch(`${base}/cms-images`, {
+        credentials: 'include',
+      });
+      const payload = await parseResponse(response, 'Failed to load CMS images');
+      return Array.isArray(payload) ? payload : [];
+    },
+
     async findShortcodeReferences(shortcode, param, value) {
       const qs = new URLSearchParams({ shortcode, param, value }).toString();
       const response = await fetch(`${base}/shortcode-references?${qs}`, {
