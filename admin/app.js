@@ -6,11 +6,20 @@ const api = createPluginAdminClient(PLUGIN_NAME);
 const SCOPES = {
   collections: 'collections',
   items: 'items',
+  deletedItems: 'deleted_items',
 };
+
+// Soft-deleted items live in `deleted_items` for 30 days, then are pruned.
+const BIN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+// Add some entropy to delete-keys so two deletes within the same ms don't collide.
+function delKey(originalKey) {
+  return 'del_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '_' + originalKey;
+}
 
 const state = {
   collections: [],
   items: [],
+  deletedItems: [],
   selectedSlug: null,
   editingItemKey: null,
   pendingFiles: [],
@@ -49,6 +58,10 @@ const el = {
 
   collectionsFilterRow: document.getElementById('collections-filter-row'),
   collectionsSearch: document.getElementById('collections-search'),
+
+  recycleBinSection: document.getElementById('recycle-bin-section'),
+  recycleBinList: document.getElementById('recycle-bin-list'),
+  emptyBinBtn: document.getElementById('empty-bin-btn'),
 
   editName: document.getElementById('edit-name'),
   editLayout: document.getElementById('edit-layout'),
@@ -547,6 +560,20 @@ async function deleteCollection(slug) {
     for (var item of matching) {
       await api.deleteDataRecord(SCOPES.items, item.key);
     }
+
+    // Also clear any orphan bin entries for this collection so they don't
+    // sit forever (we deleted the parent — the bin is for individual-item
+    // recovery, not collection-level rollback).
+    try {
+      var allBin = await api.listDataScope(SCOPES.deletedItems);
+      var binMatches = allBin.filter(function (r) {
+        return r.value?.collectionSlug === slug;
+      });
+      for (var binEntry of binMatches) {
+        await api.deleteDataRecord(SCOPES.deletedItems, binEntry.key);
+      }
+    } catch (_err) { /* tolerate older backends */ }
+
     await api.deleteDataRecord(SCOPES.collections, colKey(slug));
 
     if (state.selectedSlug === slug) {
@@ -612,11 +639,14 @@ async function openEditor(slug) {
   updateLayoutFields();
   resetItemForm();
   await loadItems();
+  await loadDeletedItems();
 }
 
 function closeEditor() {
   state.selectedSlug = null;
   state.editingItemKey = null;
+  state.deletedItems = [];
+  renderRecycleBin();
   el.editorView.style.display = 'none';
   el.collectionsView.style.display = '';
   el.editorFeedback.innerHTML = '';
@@ -880,7 +910,7 @@ function renderItemsList() {
     });
     row.querySelector('[data-action="delete"]').addEventListener('click', function () {
       openConfirm(
-        'Deze afbeelding verwijderen?',
+        'Deze afbeelding verplaatsen naar de prullenbak? Je kunt hem 30 dagen terugzetten.',
         function () { void deleteItem(record.key); },
       );
     });
@@ -1050,13 +1080,182 @@ async function addOrUpdateItem() {
 }
 
 async function deleteItem(key) {
+  var record = state.items.find(function (r) { return r.key === key; });
+  if (!record) return;
+
   try {
+    // Soft-delete: move the record into the bin, then drop from items.
+    // Order matters — write the bin entry first so a failure halfway
+    // through can't lose the item silently.
+    await api.upsertDataRecord(SCOPES.deletedItems, delKey(record.key), {
+      originalKey: record.key,
+      collectionSlug: record.value?.collectionSlug || state.selectedSlug,
+      deletedAt: Date.now(),
+      record: record.value,
+    });
     await api.deleteDataRecord(SCOPES.items, key);
     if (state.editingItemKey === key) resetItemForm();
     await loadItems();
-    notify('Afbeelding verwijderd');
+    await loadDeletedItems();
+    notify('Afbeelding verplaatst naar prullenbak');
   } catch (err) {
     notify(err.message || 'Verwijderen mislukt', 'error');
+  }
+}
+
+// ---- Recycle bin ----
+
+async function loadDeletedItems() {
+  if (!state.selectedSlug) {
+    state.deletedItems = [];
+    renderRecycleBin();
+    return;
+  }
+  var all = await api.listDataScope(SCOPES.deletedItems);
+  state.deletedItems = all.filter(function (r) {
+    return r.value?.collectionSlug === state.selectedSlug;
+  });
+  state.deletedItems.sort(function (a, b) {
+    return Number(b.value?.deletedAt || 0) - Number(a.value?.deletedAt || 0);
+  });
+  renderRecycleBin();
+}
+
+async function pruneExpiredDeletedItems() {
+  var all;
+  try {
+    all = await api.listDataScope(SCOPES.deletedItems);
+  } catch (_err) {
+    return; // older backends without the scope — silently no-op
+  }
+  var cutoff = Date.now() - BIN_TTL_MS;
+  var expired = all.filter(function (r) {
+    return Number(r.value?.deletedAt || 0) < cutoff;
+  });
+  if (expired.length === 0) return;
+  await Promise.all(expired.map(function (r) {
+    return api.deleteDataRecord(SCOPES.deletedItems, r.key).catch(function () { /* tolerate */ });
+  }));
+}
+
+function timeAgoNl(ms) {
+  var diff = Math.max(0, Date.now() - ms);
+  var sec = Math.floor(diff / 1000);
+  if (sec < 60) return 'zojuist';
+  var min = Math.floor(sec / 60);
+  if (min < 60) return min + ' min geleden';
+  var hr = Math.floor(min / 60);
+  if (hr < 24) return hr + ' uur geleden';
+  var day = Math.floor(hr / 24);
+  if (day < 30) return day + ' dag' + (day === 1 ? '' : 'en') + ' geleden';
+  return 'meer dan 30 dagen geleden';
+}
+
+function renderRecycleBin() {
+  if (!el.recycleBinSection) return;
+
+  if (state.deletedItems.length === 0) {
+    el.recycleBinSection.style.display = 'none';
+    el.recycleBinList.innerHTML = '';
+    return;
+  }
+
+  el.recycleBinSection.style.display = '';
+  el.recycleBinList.innerHTML = '';
+
+  state.deletedItems.forEach(function (record) {
+    var rec = record.value?.record || {};
+    var deletedAt = Number(record.value?.deletedAt || 0);
+    var imageUrl = rec.imageUrl || '';
+    var title = rec.title || '';
+    var previewUrl = normalizePluginMediaUrl(imageUrl);
+
+    var row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '14px';
+    row.style.padding = '10px 12px';
+    row.style.background = 'var(--surface)';
+    row.style.border = '1px solid var(--hairline)';
+    row.style.borderRadius = '12px';
+    row.style.opacity = '0.85';
+
+    var thumbInner = previewUrl
+      ? '<div style="width:100%; height:100%; background-image:url(' + esc(previewUrl) + '); background-size:cover; background-position:center;"></div>'
+      : '<div style="width:100%; height:100%; display:grid; place-items:center; color:var(--text-4);">' + ICON.image + '</div>';
+
+    row.innerHTML =
+      '<div style="width:48px; height:36px; flex-shrink:0; border-radius:6px; overflow:hidden; background:var(--bg-dim); border:1px solid var(--hairline);">' +
+      thumbInner +
+      '</div>' +
+      '<div style="min-width:0; flex:1;">' +
+      '<div style="font-family:var(--sans); font-size:13px; color:var(--text-2); font-style:' + (title ? 'normal' : 'italic') + '; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' +
+      esc(title || 'Geen titel') +
+      '</div>' +
+      '<div class="meta"><span>Verwijderd ' + esc(timeAgoNl(deletedAt)) + '</span></div>' +
+      '</div>' +
+      '<div class="actions" style="opacity:1; gap:6px;">' +
+      '<button class="act" data-action="restore" title="Terugzetten" aria-label="Terugzetten">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 10 9 10"/></svg>' +
+      '</button>' +
+      '<button class="act danger" data-action="purge" title="Definitief verwijderen" aria-label="Definitief verwijderen">' + ICON.trash + '</button>' +
+      '</div>';
+
+    row.querySelector('[data-action="restore"]').addEventListener('click', function () {
+      void restoreItem(record);
+    });
+    row.querySelector('[data-action="purge"]').addEventListener('click', function () {
+      openConfirm(
+        'Deze afbeelding definitief verwijderen?',
+        function () { void purgeDeletedItem(record.key); },
+      );
+    });
+
+    el.recycleBinList.appendChild(row);
+  });
+}
+
+async function restoreItem(deletedRecord) {
+  var rec = deletedRecord.value?.record;
+  var originalKey = deletedRecord.value?.originalKey;
+  if (!rec || !originalKey) {
+    notify('Kan niet terugzetten — record beschadigd', 'error');
+    return;
+  }
+  try {
+    // Restore with a fresh sortOrder so it lands at the end (instead of
+    // colliding with the existing items' ordering).
+    var newRec = Object.assign({}, rec, { sortOrder: state.items.length });
+    await api.upsertDataRecord(SCOPES.items, originalKey, newRec);
+    await api.deleteDataRecord(SCOPES.deletedItems, deletedRecord.key);
+    await loadItems();
+    await loadDeletedItems();
+    notify('Afbeelding teruggezet');
+  } catch (err) {
+    notify(err.message || 'Terugzetten mislukt', 'error');
+  }
+}
+
+async function purgeDeletedItem(key) {
+  try {
+    await api.deleteDataRecord(SCOPES.deletedItems, key);
+    await loadDeletedItems();
+    notify('Definitief verwijderd');
+  } catch (err) {
+    notify(err.message || 'Verwijderen mislukt', 'error');
+  }
+}
+
+async function emptyRecycleBin() {
+  if (state.deletedItems.length === 0) return;
+  try {
+    await Promise.all(state.deletedItems.map(function (r) {
+      return api.deleteDataRecord(SCOPES.deletedItems, r.key);
+    }));
+    await loadDeletedItems();
+    notify('Prullenbak geleegd');
+  } catch (err) {
+    notify(err.message || 'Leegmaken mislukt', 'error');
   }
 }
 
@@ -1095,6 +1294,15 @@ if (el.collectionsSearch) {
   el.collectionsSearch.addEventListener('input', function () {
     state.collectionSearchTerm = el.collectionsSearch.value;
     renderCollectionsList();
+  });
+}
+
+if (el.emptyBinBtn) {
+  el.emptyBinBtn.addEventListener('click', function () {
+    openConfirm(
+      'Prullenbak voor deze collectie definitief leegmaken?',
+      function () { void emptyRecycleBin(); },
+    );
   });
 }
 el.backBtn.addEventListener('click', closeEditor);
@@ -1195,6 +1403,8 @@ async function loadPluginConfig() {
 (async function init() {
   try {
     updateLayoutFields();
+    // Fire-and-forget — clean up expired bin entries on every load.
+    void pruneExpiredDeletedItems();
     await loadPluginConfig();
     await loadCollections();
   } catch (err) {
