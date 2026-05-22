@@ -454,16 +454,55 @@ module.exports = {
             return `<!-- image-section: collection "${escapeHtml(collectionSlug)}" not found -->`;
           }
 
-          const collection = collectionRecord.value;
-          const items = allItems
+          let items = allItems
             .filter((item) => item.value?.collectionSlug === collectionSlug)
             .sort(sortByOrder);
 
-          if (items.length === 0) {
-            return `<!-- image-section: collection "${escapeHtml(collectionSlug)}" has no items -->`;
+          // ---------- Shortcode parameter overrides ----------
+          // tag=foo — filter items whose tags include "foo" (case-
+          // insensitive, exact match after trimming). Tags can be stored
+          // as either an array or a comma-separated string for hand-
+          // edited data, so accept both shapes.
+          const tagFilter = typeof params.tag === 'string' ? params.tag.trim().toLowerCase() : '';
+          if (tagFilter) {
+            items = items.filter((item) => {
+              const raw = item.value?.tags;
+              if (!raw) return false;
+              const list = Array.isArray(raw)
+                ? raw
+                : String(raw).split(',');
+              return list.some((t) => String(t).trim().toLowerCase() === tagFilter);
+            });
           }
 
-          const layout = String(collection.layout || 'cards');
+          // offset=N — skip the first N items. Clamped to [0, items.length].
+          const offsetRaw = Number(params.offset);
+          const offset = Number.isFinite(offsetRaw)
+            ? Math.max(0, Math.min(items.length, Math.floor(offsetRaw)))
+            : 0;
+          if (offset > 0) items = items.slice(offset);
+
+          // limit=N — keep only the first N items after offset. Clamped to
+          // [1, 200] so an unbounded value can't render a huge page.
+          const limitRaw = Number(params.limit);
+          if (Number.isFinite(limitRaw) && limitRaw > 0) {
+            const limit = Math.min(200, Math.max(1, Math.floor(limitRaw)));
+            items = items.slice(0, limit);
+          }
+
+          if (items.length === 0) {
+            return `<!-- image-section: collection "${escapeHtml(collectionSlug)}" has no items${tagFilter ? ` (tag="${escapeHtml(tagFilter)}")` : ''} -->`;
+          }
+
+          // layout=foo — per-shortcode layout override, validated against
+          // the supported set. Falls back to the collection's stored layout
+          // if missing or unknown.
+          const ALLOWED_LAYOUTS = ['cards', 'grid', 'news', 'slider'];
+          const layoutOverride = typeof params.layout === 'string' ? params.layout.toLowerCase() : '';
+          const collection = collectionRecord.value;
+          const layout = ALLOWED_LAYOUTS.indexOf(layoutOverride) >= 0
+            ? layoutOverride
+            : String(collection.layout || 'cards');
 
           if (layout === 'grid') {
             return renderGrid(collection, items);
