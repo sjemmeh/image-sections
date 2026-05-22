@@ -60,6 +60,17 @@ export function createPluginAdminClient(pluginName) {
       return Array.isArray(payload) ? payload : [];
     },
 
+    async renderPreview(shortcode, params, data) {
+      const response = await fetch(`${base}/preview`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shortcode, params: params || {}, data: data || {} }),
+      });
+      const payload = await parseResponse(response, 'Failed to render preview');
+      return typeof payload?.html === 'string' ? payload.html : '';
+    },
+
     async findShortcodeReferences(shortcode, param, value) {
       const qs = new URLSearchParams({ shortcode, param, value }).toString();
       const response = await fetch(`${base}/shortcode-references?${qs}`, {

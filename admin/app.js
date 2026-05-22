@@ -131,6 +131,16 @@ const LOCALES = {
     'modal.preview.title': 'Voorbeeld',
     'modal.library.title': 'Bibliotheek — |kies afbeelding',
     'modal.library.sub': 'Selecteer een of meerdere afbeeldingen uit de CMS-bibliotheek.',
+    'section.preview.title': 'Live |voorbeeld',
+    'section.preview.desc': 'Werkt automatisch bij — geen opslaan nodig om het effect te zien.',
+    'option.viewport.desktop': 'Desktop',
+    'option.viewport.tablet': 'Tablet',
+    'option.viewport.mobile': 'Mobiel',
+    'btn.refresh': 'Ververs',
+    'msg.previewLoading': 'Laden…',
+    'msg.previewReady': 'Bijgewerkt',
+    'msg.previewFailed': 'Voorbeeld mislukt',
+    'msg.previewEmpty': 'Voeg een afbeelding toe voor een voorbeeld',
     'btn.pickFromLibrary': 'Kies uit CMS-bibliotheek',
     'btn.libraryInsert': 'Invoegen',
     'msg.libraryLoading': 'Bibliotheek laden…',
@@ -327,6 +337,16 @@ const LOCALES = {
     'modal.preview.title': 'Preview',
     'modal.library.title': 'Library — |pick image',
     'modal.library.sub': 'Pick one or more images from the CMS media library.',
+    'section.preview.title': 'Live |preview',
+    'section.preview.desc': 'Updates automatically — no save needed to see the effect.',
+    'option.viewport.desktop': 'Desktop',
+    'option.viewport.tablet': 'Tablet',
+    'option.viewport.mobile': 'Mobile',
+    'btn.refresh': 'Refresh',
+    'msg.previewLoading': 'Loading…',
+    'msg.previewReady': 'Up to date',
+    'msg.previewFailed': 'Preview failed',
+    'msg.previewEmpty': 'Add an image to see a preview',
     'btn.pickFromLibrary': 'Pick from CMS library',
     'btn.libraryInsert': 'Insert',
     'msg.libraryLoading': 'Loading library…',
@@ -507,6 +527,16 @@ const state = {
   // Current item-form media type: 'image' | 'video' | 'embed'. Drives the
   // visibility of the poster input and the contextual URL label.
   itemMediaType: 'image',
+  // Live preview state. previewDebounce holds the pending setTimeout id
+  // so each new edit cancels the previous one. previewToken bumps on
+  // every request so out-of-order responses (slow + fast in flight) are
+  // dropped — only the most recent request paints. previewSupported is
+  // flipped false on the first 404/422 so older backends without the
+  // /preview endpoint silently hide the iframe instead of nagging.
+  previewDebounce: null,
+  previewToken: 0,
+  previewViewport: 'desktop',
+  previewSupported: true,
 };
 
 const el = {
@@ -596,6 +626,13 @@ const el = {
   confirmModalOk: document.getElementById('confirm-modal-ok'),
   confirmModalCancel: document.getElementById('confirm-modal-cancel'),
   confirmModalClose: document.getElementById('confirm-modal-close'),
+
+  previewSection: document.getElementById('preview-section'),
+  previewIframe: document.getElementById('preview-iframe'),
+  previewFrameWrap: document.getElementById('preview-frame-wrap'),
+  previewStatus: document.getElementById('preview-status'),
+  previewViewport: document.getElementById('preview-viewport'),
+  previewRefreshBtn: document.getElementById('preview-refresh-btn'),
 
   openLibraryBtn: document.getElementById('open-library-btn'),
   libraryModal: document.getElementById('library-modal'),
@@ -1182,6 +1219,9 @@ async function openEditor(slug) {
   resetItemForm();
   await loadItems();
   await loadDeletedItems();
+  // Initial render — populates the iframe with the current persisted
+  // state. Subsequent edits debounce through scheduleRenderPreview().
+  void renderPreview();
 }
 
 function closeEditor() {
@@ -1248,6 +1288,7 @@ async function loadItems() {
     return (Number(a.value?.sortOrder) || 0) - (Number(b.value?.sortOrder) || 0);
   });
   renderItemsList();
+  scheduleRenderPreview();
 }
 
 // ---- Drag-and-drop reordering ----
@@ -1304,6 +1345,141 @@ async function handleDrop(draggedKey, targetKey, position) {
 }
 
 // ---- Image preview modal ----
+
+// ---- Live preview ----
+
+const PREVIEW_DEBOUNCE_MS = 450;
+const PREVIEW_VIEWPORT_WIDTHS = {
+  desktop: '100%',
+  tablet: '768px',
+  mobile: '390px',
+};
+
+/**
+ * Build a snapshot of "what would the rendered output look like with the
+ * editor's current state" — collection settings come straight from the
+ * form inputs (not the persisted record) so the preview reflects
+ * unsaved changes, items come from state.items.
+ *
+ * The collection is remapped to a synthetic slug "preview" so the
+ * shortcode handler resolves the snapshot rather than any stored data.
+ */
+function buildPreviewSnapshot() {
+  if (!state.selectedSlug) return null;
+
+  var bgRaw = el.editBgColorText.value.trim();
+  var bgColor = isValidCssColor(bgRaw) ? bgRaw : '';
+
+  var sliderInterval = Number(el.editSliderInterval.value);
+  if (!Number.isFinite(sliderInterval) || sliderInterval < 2000) sliderInterval = 5000;
+  sliderInterval = Math.max(2000, Math.min(20000, sliderInterval));
+
+  var collectionValue = {
+    slug: 'preview',
+    name: el.editName.value.trim() || 'Preview',
+    layout: el.editLayout.value,
+    columns: Number(el.editColumns.value) || 3,
+    lightbox: isSwitchOn(el.editLightboxSwitch),
+    titlePosition: el.editTitlePosition.value,
+    showTitle: isSwitchOn(el.editShowTitleSwitch),
+    titleAlign: el.editTitleAlign.value,
+    buttonText: el.editBtnText.value.trim() || (activeLocale() === 'en' ? 'View project' : 'Bekijk project'),
+    backgroundColor: bgColor,
+    sliderAutoplay: isSwitchOn(el.editSliderAutoplaySwitch),
+    sliderInterval: sliderInterval,
+    sliderTransition: el.editSliderTransition.value,
+    sliderHeight: el.editSliderHeight.value.trim() || '60vh',
+    sliderCaptionPos: el.editSliderCaptionPos.value,
+    sliderShowDots: isSwitchOn(el.editSliderDotsSwitch),
+    sliderShowArrows: isSwitchOn(el.editSliderArrowsSwitch),
+  };
+
+  // Items: clone the live items, remapping each one's collectionSlug to
+  // the synthetic "preview" slug so the server's filter picks them up.
+  var items = state.items.map(function (r) {
+    return {
+      key: r.key,
+      value: Object.assign({}, r.value, { collectionSlug: 'preview' }),
+    };
+  });
+
+  return {
+    collections: [
+      { key: 'col_preview', value: collectionValue },
+    ],
+    items: items,
+  };
+}
+
+function setPreviewStatus(textKey, color) {
+  if (!el.previewStatus) return;
+  el.previewStatus.textContent = textKey ? t(textKey) : '';
+  el.previewStatus.style.color = color || 'var(--text-3)';
+}
+
+async function renderPreview() {
+  if (!state.previewSupported || !el.previewIframe || !state.selectedSlug) return;
+
+  var snapshot = buildPreviewSnapshot();
+  if (!snapshot) return;
+
+  if (snapshot.items.length === 0) {
+    el.previewIframe.srcdoc =
+      '<!doctype html><html><body style="font-family:system-ui; color:#6b7280; padding:32px; text-align:center;">' +
+      esc(t('msg.previewEmpty')) + '</body></html>';
+    setPreviewStatus('', '');
+    return;
+  }
+
+  // Bump the token before issuing the request; if a later request returns
+  // first, the earlier one's response is dropped silently.
+  state.previewToken += 1;
+  var myToken = state.previewToken;
+  setPreviewStatus('msg.previewLoading');
+
+  try {
+    var html = await api.renderPreview('image-section', { collection: 'preview' }, snapshot);
+    if (myToken !== state.previewToken) return;  // superseded
+    el.previewIframe.srcdoc = html;
+    setPreviewStatus('msg.previewReady', 'var(--ok)');
+  } catch (err) {
+    if (myToken !== state.previewToken) return;
+    // 404 / unsupported endpoint → hide the preview panel entirely and
+    // stop trying. Anything else surfaces as an inline error.
+    var msg = err && err.message ? err.message : '';
+    if (/404|not found|not supported/i.test(msg)) {
+      state.previewSupported = false;
+      if (el.previewSection) el.previewSection.style.display = 'none';
+      return;
+    }
+    setPreviewStatus('msg.previewFailed', 'var(--bad)');
+    console.error('Preview render failed:', err);
+  }
+}
+
+function scheduleRenderPreview() {
+  if (!state.previewSupported || !state.selectedSlug) return;
+  if (state.previewDebounce) clearTimeout(state.previewDebounce);
+  state.previewDebounce = setTimeout(function () {
+    state.previewDebounce = null;
+    void renderPreview();
+  }, PREVIEW_DEBOUNCE_MS);
+}
+
+function setPreviewViewport(viewport) {
+  var v = (viewport === 'tablet' || viewport === 'mobile') ? viewport : 'desktop';
+  state.previewViewport = v;
+  if (el.previewIframe) {
+    el.previewIframe.style.maxWidth = PREVIEW_VIEWPORT_WIDTHS[v];
+  }
+  if (el.previewViewport) {
+    el.previewViewport.querySelectorAll('button[data-viewport]').forEach(function (btn) {
+      var active = btn.getAttribute('data-viewport') === v;
+      btn.classList.toggle('on', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+}
 
 // ---- Item media-type switcher ----
 
@@ -2110,11 +2286,54 @@ el.addItemBtn.addEventListener('click', function () { void addOrUpdateItem(); })
 el.resetItemBtn.addEventListener('click', resetItemForm);
 el.editLayout.addEventListener('change', updateLayoutFields);
 
-bindSwitch(el.editLightboxSwitch);
-bindSwitch(el.editShowTitleSwitch, updateLayoutFields);
-bindSwitch(el.editSliderAutoplaySwitch);
-bindSwitch(el.editSliderDotsSwitch);
-bindSwitch(el.editSliderArrowsSwitch);
+bindSwitch(el.editLightboxSwitch, scheduleRenderPreview);
+bindSwitch(el.editShowTitleSwitch, function () {
+  updateLayoutFields();
+  scheduleRenderPreview();
+});
+bindSwitch(el.editSliderAutoplaySwitch, scheduleRenderPreview);
+bindSwitch(el.editSliderDotsSwitch, scheduleRenderPreview);
+bindSwitch(el.editSliderArrowsSwitch, scheduleRenderPreview);
+
+// Every editable settings field also reruns the preview. Using a single
+// listener on the editor view captures input/change without binding to
+// each field individually.
+['input', 'change'].forEach(function (evt) {
+  if (!el.editorView) return;
+  el.editorView.addEventListener(evt, function (e) {
+    var target = e.target;
+    if (!target) return;
+    // Only re-render for fields under the settings form-section — items
+    // and bin rows shouldn't trigger; they have their own paths via
+    // loadItems / loadDeletedItems → scheduleRenderPreview.
+    if (!target.closest('.form-section')) return;
+    if (target.closest('#items-list') || target.closest('#recycle-bin-list')) return;
+    // Skip the items-form fields too — they only affect a pending item,
+    // not the rendered output.
+    if (
+      target.id === 'item-url' || target.id === 'item-title' || target.id === 'item-alt' ||
+      target.id === 'item-caption' || target.id === 'item-date' || target.id === 'item-tags' ||
+      target.id === 'item-link' || target.id === 'item-poster' || target.id === 'item-file'
+    ) return;
+    scheduleRenderPreview();
+  });
+});
+
+// Layout switcher also re-renders (already wired for updateLayoutFields).
+if (el.editLayout) {
+  el.editLayout.addEventListener('change', scheduleRenderPreview);
+}
+
+if (el.previewViewport) {
+  el.previewViewport.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-viewport]');
+    if (!btn) return;
+    setPreviewViewport(btn.getAttribute('data-viewport'));
+  });
+}
+if (el.previewRefreshBtn) {
+  el.previewRefreshBtn.addEventListener('click', function () { void renderPreview(); });
+}
 
 if (el.itemMediaType) {
   el.itemMediaType.addEventListener('click', function (e) {
