@@ -14,14 +14,18 @@ const state = {
   selectedSlug: null,
   editingItemKey: null,
   pendingFiles: [],
+  feedbackTimer: null,
+  pendingConfirm: null,
 };
 
 const el = {
-  collectionsCard: document.getElementById('collections-card'),
-  editorCard: document.getElementById('editor-card'),
+  collectionsView: document.getElementById('collections-view'),
+  editorView: document.getElementById('editor-view'),
   editorTitle: document.getElementById('editor-title'),
   editorShortcode: document.getElementById('editor-shortcode'),
   collectionsList: document.getElementById('collections-list'),
+  collectionsFeedback: document.getElementById('collections-feedback'),
+  editorFeedback: document.getElementById('editor-feedback'),
   backBtn: document.getElementById('back-btn'),
 
   newColName: document.getElementById('new-col-name'),
@@ -32,12 +36,13 @@ const el = {
   editName: document.getElementById('edit-name'),
   editLayout: document.getElementById('edit-layout'),
   editColumns: document.getElementById('edit-columns'),
-  editLightbox: document.getElementById('edit-lightbox'),
+  editLightboxSwitch: document.getElementById('edit-lightbox-switch'),
   editTitlePosition: document.getElementById('edit-title-position'),
-  editShowTitle: document.getElementById('edit-show-title'),
+  editShowTitleSwitch: document.getElementById('edit-show-title-switch'),
   editTitleAlign: document.getElementById('edit-title-align'),
   editBtnText: document.getElementById('edit-btn-text'),
   editBgColorPicker: document.getElementById('edit-bg-color-picker'),
+  editBgColorSwatch: document.getElementById('edit-bg-color-swatch'),
   editBgColorText: document.getElementById('edit-bg-color-text'),
   editBgColorClear: document.getElementById('edit-bg-color-clear'),
   lightboxGroup: document.getElementById('lightbox-group'),
@@ -56,94 +61,36 @@ const el = {
   itemLink: document.getElementById('item-link'),
   itemLinkGroup: document.getElementById('item-link-group'),
   addItemBtn: document.getElementById('add-item-btn'),
+  resetItemBtn: document.getElementById('reset-item-btn'),
   itemsList: document.getElementById('items-list'),
 
-  toast: document.getElementById('toast'),
+  confirmModal: document.getElementById('confirm-modal'),
+  confirmModalText: document.getElementById('confirm-modal-text'),
+  confirmModalOk: document.getElementById('confirm-modal-ok'),
+  confirmModalCancel: document.getElementById('confirm-modal-cancel'),
+  confirmModalClose: document.getElementById('confirm-modal-close'),
 };
 
-// ---- UI helpers ----
+// ---- Stroke-style inline SVGs (match admin-panel/src/lib/icons.tsx aesthetic) ----
 
-const BUTTON_BASE =
-  'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-4 py-2';
-const BUTTON_VARIANTS = {
-  primary: `${BUTTON_BASE} bg-white text-black hover:bg-zinc-200 shadow-lg shadow-white/5`,
-  secondary: `${BUTTON_BASE} bg-gray-800 text-gray-200 hover:bg-gray-700 shadow-sm hover:shadow`,
-  icon: 'inline-flex items-center justify-center whitespace-nowrap transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-white/10 bg-white/5 text-zinc-300 hover:border-white/20 hover:bg-white/10 hover:text-white shadow-none h-8 w-8 p-1.5 rounded-md',
+const ICON = {
+  edit:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+  trash:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  up:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>',
+  down:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>',
+  image:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
 };
 
-const EDIT_ICON = '<span aria-hidden="true" style="font-size:14px;line-height:1;color:#d4d4d8;display:block;">&#9998;</span>';
-const DELETE_ICON = '<span aria-hidden="true" style="font-size:14px;line-height:1;color:#d4d4d8;display:block;">&#128465;</span>';
-const ARROW_UP_ICON = '<span aria-hidden="true" style="font-size:14px;line-height:1;color:#d4d4d8;display:block;">&#9650;</span>';
-const ARROW_DOWN_ICON = '<span aria-hidden="true" style="font-size:14px;line-height:1;color:#d4d4d8;display:block;">&#9660;</span>';
-
-var CONVERTIBLE_TO_WEBP = new Set(['image/png', 'image/jpeg', 'image/gif']);
-
-function applyButtonClasses(root) {
-  (root || document).querySelectorAll('button[data-btn]').forEach(function (btn) {
-    var variant = btn.getAttribute('data-btn') || 'secondary';
-    btn.className = BUTTON_VARIANTS[variant] || BUTTON_VARIANTS.secondary;
-  });
-}
-
-function iconBtn(attr, val, title, icon) {
-  return `<button data-btn="icon" ${attr}="${esc(val)}" title="${esc(title)}" aria-label="${esc(title)}">${icon}</button>`;
-}
-
-function esc(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function notify(msg, isError) {
-  el.toast.textContent = msg;
-  el.toast.classList.remove('hidden');
-  el.toast.style.borderColor = isError ? '#b91c1c' : '#374151';
-  setTimeout(function () {
-    el.toast.classList.add('hidden');
-  }, 2200);
-}
-
-function slugify(value) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-function colKey(slug) {
-  return `col_${slug}`;
-}
-
-function normalizePluginMediaUrl(url) {
-  if (!url) return '';
-  let normalized = String(url).replace('/api/admin/plugins/', '/api/plugins/');
-  normalized = normalized.replace(
-    /(\/api\/plugins\/([^/]+)\/uploads\/)plugins\/\2\//,
-    '$1',
-  );
-  return normalized;
-}
-
-function filenameToTitle(name) {
-  if (!name) return '';
-  // strip extension, replace separators with spaces, collapse whitespace, capitalize first letter
-  var stem = String(name).replace(/\.[^.]+$/, '');
-  var pretty = stem.replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
-  if (!pretty) return '';
-  return pretty.charAt(0).toUpperCase() + pretty.slice(1);
-}
+const CONVERTIBLE_TO_WEBP = new Set(['image/png', 'image/jpeg', 'image/gif']);
 
 /**
- * Convert a raster image File to WebP using the Canvas API.
- * Uses createImageBitmap() so no <img> element is needed, avoiding
- * Content-Security-Policy img-src restrictions on blob: URLs.
- * @param {File} file
- * @param {number} [quality=0.85]
- * @returns {Promise<File>}
+ * Convert a raster image File to WebP via Canvas. Uses createImageBitmap
+ * so no <img> element is needed (avoids CSP img-src restrictions on blob:).
  */
 async function convertToWebp(file, quality) {
   if (quality === undefined) quality = 0.85;
@@ -171,16 +118,54 @@ async function convertToWebp(file, quality) {
 }
 
 /**
- * Prepare a file for upload. Raster images (PNG, JPEG, GIF) are converted
- * to WebP; SVG, WebP, and video files are returned as-is.
- * @param {File} file
- * @returns {Promise<File>}
+ * Raster images (PNG, JPEG, GIF) are converted to WebP before upload;
+ * SVG, WebP, and other types pass through.
  */
 async function prepareFileForUpload(file) {
   if (CONVERTIBLE_TO_WEBP.has(file.type)) {
     return convertToWebp(file);
   }
   return file;
+}
+
+// ---- UI helpers ----
+
+function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function slugify(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function colKey(slug) {
+  return `col_${slug}`;
+}
+
+function normalizePluginMediaUrl(url) {
+  if (!url) return '';
+  let normalized = String(url).replace('/api/admin/plugins/', '/api/plugins/');
+  normalized = normalized.replace(
+    /(\/api\/plugins\/([^/]+)\/uploads\/)plugins\/\2\//,
+    '$1',
+  );
+  return normalized;
+}
+
+function filenameToTitle(name) {
+  if (!name) return '';
+  var stem = String(name).replace(/\.[^.]+$/, '');
+  var pretty = stem.replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!pretty) return '';
+  return pretty.charAt(0).toUpperCase() + pretty.slice(1);
 }
 
 function isValidCssColor(value) {
@@ -196,26 +181,88 @@ function syncBgColorFromText() {
   var v = el.editBgColorText.value.trim();
   if (/^#[0-9a-fA-F]{6}$/.test(v)) {
     el.editBgColorPicker.value = v;
+    el.editBgColorSwatch.style.background = v;
+  } else if (!v) {
+    el.editBgColorSwatch.style.background = 'transparent';
   }
+}
+
+function notify(message, variant) {
+  // Inline banner at top of currently-visible view; replaces fixed toast.
+  var host = state.selectedSlug ? el.editorFeedback : el.collectionsFeedback;
+  if (!host) return;
+  var kind = variant === 'error' ? 'warn' : 'accent';
+  host.innerHTML =
+    '<div class="banner ' + kind + '" style="margin-bottom:18px;">' +
+    '<div>' +
+    '<h4>' + esc(message) + '</h4>' +
+    '</div>' +
+    '</div>';
+  if (state.feedbackTimer) clearTimeout(state.feedbackTimer);
+  state.feedbackTimer = setTimeout(function () {
+    host.innerHTML = '';
+  }, variant === 'error' ? 4200 : 2600);
+}
+
+// ---- Switch toggles (design-system .switch) ----
+
+function setSwitchState(node, on) {
+  if (!node) return;
+  if (on) {
+    node.classList.add('on');
+    node.setAttribute('aria-checked', 'true');
+  } else {
+    node.classList.remove('on');
+    node.setAttribute('aria-checked', 'false');
+  }
+}
+
+function isSwitchOn(node) {
+  return !!(node && node.classList.contains('on'));
+}
+
+function bindSwitch(node, onChange) {
+  if (!node) return;
+  var toggle = function () {
+    setSwitchState(node, !isSwitchOn(node));
+    if (typeof onChange === 'function') onChange();
+  };
+  node.addEventListener('click', toggle);
+  node.addEventListener('keydown', function (e) {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      toggle();
+    }
+  });
+}
+
+// ---- Confirmation modal ----
+
+function openConfirm(message, onConfirm) {
+  el.confirmModalText.textContent = message;
+  state.pendingConfirm = onConfirm;
+  el.confirmModal.style.display = 'flex';
+}
+
+function closeConfirm() {
+  state.pendingConfirm = null;
+  el.confirmModal.style.display = 'none';
 }
 
 // ---- Layout-specific visibility ----
 
 function updateLayoutFields() {
   var layout = el.editLayout.value;
-  var gridTitleEnabled = layout === 'grid' && el.editShowTitle.checked;
+  var gridTitleEnabled = layout === 'grid' && isSwitchOn(el.editShowTitleSwitch);
   var isNews = layout === 'news';
 
   el.lightboxGroup.style.display = '';
   el.btnTextGroup.style.display = (layout === 'cards' || isNews) ? '' : 'none';
-  // Per-item title is editable for cards/news always, and for grid when "show title" is enabled
   el.itemTitleGroup.style.display = (layout === 'cards' || isNews || gridTitleEnabled) ? '' : 'none';
   el.itemLinkGroup.style.display = (layout === 'cards' || isNews) ? '' : 'none';
 
-  // Show title checkbox only relevant for grid
   el.showTitleGroup.style.display = layout === 'grid' ? '' : 'none';
 
-  // Title position + alignment: only relevant for cards/grid
   var showTitleOptions = layout === 'cards' || gridTitleEnabled;
   el.titlePositionGroup.style.display = showTitleOptions ? '' : 'none';
   el.titleAlignGroup.style.display = showTitleOptions ? '' : 'none';
@@ -230,46 +277,70 @@ async function loadCollections() {
 
 function renderCollectionsList() {
   el.collectionsList.innerHTML = '';
+
   var sorted = [...state.collections].sort(function (a, b) {
     return String(a.value?.name || '').localeCompare(String(b.value?.name || ''));
   });
 
   if (sorted.length === 0) {
     el.collectionsList.innerHTML =
-      '<div class="px-6 py-4 text-muted-foreground text-sm">Nog geen collecties aangemaakt.</div>';
+      '<div class="card"><div class="empty">' +
+      '<h3>Nog geen collecties</h3>' +
+      '<p class="sub">Maak hierboven je eerste collectie aan om te beginnen.</p>' +
+      '</div></div>';
     return;
   }
 
-  sorted.forEach(function (record) {
-    var slug = esc(record.value?.slug || record.key);
-    var name = esc(record.value?.name || slug);
-    var layout = esc(record.value?.layout || 'cards');
-    var shortcode = `{{plugin:image-section collection="${slug}"}}`;
+  var listWrap = document.createElement('div');
+  listWrap.className = 'card';
+  listWrap.innerHTML =
+    '<div class="card-head">' +
+    '<div>' +
+    '<h3 class="card-title">Collecties</h3>' +
+    '<p class="card-sub">Klik op een collectie om te bewerken.</p>' +
+    '</div>' +
+    '</div>' +
+    '<div class="card-body" style="padding:0;"><div class="list"></div></div>';
+  el.collectionsList.appendChild(listWrap);
+
+  var listEl = listWrap.querySelector('.list');
+
+  sorted.forEach(function (record, index) {
+    var slug = record.value?.slug || record.key;
+    var name = record.value?.name || slug;
+    var layout = record.value?.layout || 'cards';
+    var shortcode = '{{plugin:image-section collection="' + slug + '"}}';
 
     var row = document.createElement('div');
-    row.className = 'px-6 py-4 hover:bg-muted/30 transition-colors duration-200';
-    row.innerHTML = `
-      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div class="flex-1 min-w-0 flex flex-col gap-1">
-          <h4 class="text-lg font-semibold text-card-foreground">${name}</h4>
-          <span class="text-sm text-muted-foreground">Layout: ${layout} &middot; <code class="text-xs bg-muted px-1 py-0.5 rounded">${esc(shortcode)}</code></span>
-        </div>
-        <div class="flex items-center gap-2">
-          ${iconBtn('data-open', slug, 'Bewerken', EDIT_ICON)}
-          ${iconBtn('data-delete', slug, 'Verwijderen', DELETE_ICON)}
-        </div>
-      </div>
-    `;
-    applyButtonClasses(row);
+    row.className = 'list-row';
+    row.innerHTML =
+      '<span class="num">' + String(index + 1).padStart(2, '0') + '</span>' +
+      '<div class="body">' +
+      '<div class="title-line">' +
+      '<span class="t">' + esc(name) + '</span>' +
+      '<span class="slug-tag">/' + esc(slug) + '</span>' +
+      '<span class="status-pill draft" style="text-transform:lowercase;">' + esc(layout) + '</span>' +
+      '</div>' +
+      '<div class="meta">' +
+      '<span>Shortcode: <b>' + esc(shortcode) + '</b></span>' +
+      '</div>' +
+      '</div>' +
+      '<div class="actions">' +
+      '<button class="act" data-action="open" title="Bewerken" aria-label="Bewerken">' + ICON.edit + '</button>' +
+      '<button class="act danger" data-action="delete" title="Verwijderen" aria-label="Verwijderen">' + ICON.trash + '</button>' +
+      '</div>';
 
-    row.querySelector('[data-open]').addEventListener('click', function () {
-      openEditor(record.value?.slug);
+    row.querySelector('[data-action="open"]').addEventListener('click', function () {
+      openEditor(slug);
     });
-    row.querySelector('[data-delete]').addEventListener('click', function () {
-      void deleteCollection(record.value?.slug);
+    row.querySelector('[data-action="delete"]').addEventListener('click', function () {
+      openConfirm(
+        'Collectie "' + name + '" en alle afbeeldingen verwijderen?',
+        function () { void deleteCollection(slug); },
+      );
     });
 
-    el.collectionsList.appendChild(row);
+    listEl.appendChild(row);
   });
 }
 
@@ -279,7 +350,7 @@ async function createCollection() {
   var layout = el.newColLayout.value;
 
   if (!name || !slug) {
-    notify('Vul een naam en slug in', true);
+    notify('Vul een naam en slug in', 'error');
     return;
   }
 
@@ -289,7 +360,7 @@ async function createCollection() {
     return r.value?.slug === slug;
   });
   if (existing) {
-    notify('Een collectie met deze slug bestaat al', true);
+    notify('Een collectie met deze slug bestaat al', 'error');
     return;
   }
 
@@ -309,19 +380,17 @@ async function createCollection() {
 
     el.newColName.value = '';
     el.newColSlug.value = '';
+    delete el.newColSlug.dataset.manual;
     await loadCollections();
     openEditor(slug);
     notify('Collectie aangemaakt');
   } catch (err) {
-    notify(err.message || 'Aanmaken mislukt', true);
+    notify(err.message || 'Aanmaken mislukt', 'error');
   }
 }
 
 async function deleteCollection(slug) {
-  if (!confirm(`Collectie "${slug}" en alle afbeeldingen verwijderen?`)) return;
-
   try {
-    // Delete all items for this collection
     var allItems = await api.listDataScope(SCOPES.items);
     var matching = allItems.filter(function (r) {
       return r.value?.collectionSlug === slug;
@@ -337,7 +406,7 @@ async function deleteCollection(slug) {
     await loadCollections();
     notify('Collectie verwijderd');
   } catch (err) {
-    notify(err.message || 'Verwijderen mislukt', true);
+    notify(err.message || 'Verwijderen mislukt', 'error');
   }
 }
 
@@ -353,29 +422,34 @@ async function openEditor(slug) {
   state.selectedSlug = slug;
   state.editingItemKey = null;
 
-  el.collectionsCard.classList.add('hidden');
-  el.editorCard.classList.remove('hidden');
+  el.collectionsView.style.display = 'none';
+  el.editorView.style.display = '';
 
   var col = getSelectedCollection();
   var name = col?.value?.name || slug;
 
-  el.editorTitle.textContent = `${name}`;
-  el.editorShortcode.innerHTML = `Shortcode: <code class="text-xs bg-muted px-1.5 py-0.5 rounded">{{plugin:image-section collection="${esc(slug)}"}}</code>`;
+  el.editorTitle.innerHTML = esc(name) + ' <em>bewerken</em>';
+  el.editorShortcode.innerHTML =
+    'Shortcode: <code style="font-family:var(--mono); font-size:12px; color:var(--accent-2); background:var(--surface-2); padding:2px 8px; border-radius:4px; border:1px solid var(--hairline);">{{plugin:image-section collection="' +
+    esc(slug) + '"}}</code>';
 
   el.editName.value = col?.value?.name || '';
   el.editLayout.value = col?.value?.layout || 'cards';
   el.editColumns.value = String(col?.value?.columns || 3);
-  el.editLightbox.checked = col?.value?.lightbox === true || col?.value?.lightbox === 'true';
+  setSwitchState(el.editLightboxSwitch, col?.value?.lightbox === true || col?.value?.lightbox === 'true');
   el.editTitlePosition.value = col?.value?.titlePosition || 'below';
-  el.editShowTitle.checked = col?.value?.showTitle === true || col?.value?.showTitle === 'true';
+  setSwitchState(el.editShowTitleSwitch, col?.value?.showTitle === true || col?.value?.showTitle === 'true');
   el.editTitleAlign.value = col?.value?.titleAlign || 'left';
   el.editBtnText.value = col?.value?.buttonText || 'Bekijk project';
+
   var bg = col?.value?.backgroundColor || '';
   el.editBgColorText.value = bg;
   if (/^#[0-9a-fA-F]{6}$/.test(bg)) {
     el.editBgColorPicker.value = bg;
+    el.editBgColorSwatch.style.background = bg;
   } else {
     el.editBgColorPicker.value = '#000000';
+    el.editBgColorSwatch.style.background = 'transparent';
   }
 
   updateLayoutFields();
@@ -386,8 +460,9 @@ async function openEditor(slug) {
 function closeEditor() {
   state.selectedSlug = null;
   state.editingItemKey = null;
-  el.editorCard.classList.add('hidden');
-  el.collectionsCard.classList.remove('hidden');
+  el.editorView.style.display = 'none';
+  el.collectionsView.style.display = '';
+  el.editorFeedback.innerHTML = '';
 }
 
 async function saveSettings() {
@@ -395,7 +470,7 @@ async function saveSettings() {
 
   var bgRaw = el.editBgColorText.value.trim();
   if (bgRaw && !isValidCssColor(bgRaw)) {
-    notify('Ongeldige achtergrondkleur (gebruik #hex)', true);
+    notify('Ongeldige achtergrondkleur (gebruik #hex)', 'error');
     return;
   }
 
@@ -405,9 +480,9 @@ async function saveSettings() {
       name: el.editName.value.trim(),
       layout: el.editLayout.value,
       columns: Number(el.editColumns.value),
-      lightbox: el.editLightbox.checked,
+      lightbox: isSwitchOn(el.editLightboxSwitch),
       titlePosition: el.editTitlePosition.value,
-      showTitle: el.editShowTitle.checked,
+      showTitle: isSwitchOn(el.editShowTitleSwitch),
       titleAlign: el.editTitleAlign.value,
       buttonText: el.editBtnText.value.trim() || 'Bekijk project',
       backgroundColor: bgRaw,
@@ -416,7 +491,7 @@ async function saveSettings() {
     await loadCollections();
     notify('Instellingen opgeslagen');
   } catch (err) {
-    notify(err.message || 'Opslaan mislukt', true);
+    notify(err.message || 'Opslaan mislukt', 'error');
   }
 }
 
@@ -438,50 +513,70 @@ function renderItemsList() {
 
   if (state.items.length === 0) {
     el.itemsList.innerHTML =
-      '<div class="text-muted-foreground text-sm">Nog geen afbeeldingen toegevoegd.</div>';
+      '<div class="empty compact">' +
+      '<h3 style="font-size:22px;">Nog geen afbeeldingen</h3>' +
+      '<p class="sub">Sleep bestanden of voeg een URL toe om te beginnen.</p>' +
+      '</div>';
     return;
   }
 
   state.items.forEach(function (record, index) {
     var imageUrl = record.value?.imageUrl || '';
-    var title = esc(record.value?.title || '');
-    var linkUrl = esc(record.value?.linkUrl || '');
-
-    // Normalize the preview URL for display
+    var title = record.value?.title || '';
+    var linkUrl = record.value?.linkUrl || '';
     var previewUrl = normalizePluginMediaUrl(imageUrl);
+    var isFirst = index === 0;
+    var isLast = index === state.items.length - 1;
 
     var row = document.createElement('div');
-    row.className =
-      'px-4 py-3 hover:bg-muted/30 transition-colors duration-200 border border-border rounded-xl';
-    row.innerHTML = `
-      <div class="flex items-center gap-4">
-        <div class="w-20 h-14 rounded overflow-hidden flex-shrink-0 bg-muted">
-          ${previewUrl ? `<img src="${esc(previewUrl)}" alt="${title}" class="w-full h-full object-cover" loading="lazy" />` : '<div class="w-full h-full flex items-center justify-center text-muted-foreground text-xs">No img</div>'}
-        </div>
-        <div class="flex-1 min-w-0 flex flex-col gap-0.5">
-          <span class="text-sm font-semibold text-card-foreground truncate">${title || '<em class="text-muted-foreground">Geen titel</em>'}</span>
-          ${linkUrl ? `<span class="text-xs text-muted-foreground truncate">${linkUrl}</span>` : ''}
-        </div>
-        <div class="flex items-center gap-1">
-          ${index > 0 ? iconBtn('data-move-up', record.key, 'Omhoog', ARROW_UP_ICON) : ''}
-          ${index < state.items.length - 1 ? iconBtn('data-move-down', record.key, 'Omlaag', ARROW_DOWN_ICON) : ''}
-          ${iconBtn('data-edit', record.key, 'Bewerken', EDIT_ICON)}
-          ${iconBtn('data-delete', record.key, 'Verwijderen', DELETE_ICON)}
-        </div>
-      </div>
-    `;
-    applyButtonClasses(row);
+    row.className = 'list-row';
+    row.style.background = 'var(--surface)';
+    row.style.border = '1px solid var(--hairline)';
+    row.style.borderRadius = '12px';
+    row.style.padding = '12px 14px';
 
-    var moveUpBtn = row.querySelector('[data-move-up]');
-    var moveDownBtn = row.querySelector('[data-move-down]');
-    if (moveUpBtn) moveUpBtn.addEventListener('click', function () { void moveItem(index, -1); });
-    if (moveDownBtn) moveDownBtn.addEventListener('click', function () { void moveItem(index, 1); });
+    var thumbInner = previewUrl
+      ? '<div style="width:100%; height:100%; background-image:url(' + esc(previewUrl) + '); background-size:cover; background-position:center;"></div>'
+      : '<div style="width:100%; height:100%; display:grid; place-items:center; color:var(--text-4);">' + ICON.image + '</div>';
 
-    row.querySelector('[data-edit]').addEventListener('click', function () {
+    row.innerHTML =
+      '<div style="width:64px; height:48px; flex-shrink:0; border-radius:8px; overflow:hidden; background:var(--bg-dim); border:1px solid var(--hairline);">' +
+      thumbInner +
+      '</div>' +
+      '<div class="body" style="min-width:0; flex:1;">' +
+      '<div class="title-line" style="margin-bottom:4px;">' +
+      '<span class="t" style="font-family:var(--sans); font-size:14px; color:var(--text); font-style:' + (title ? 'normal' : 'italic') + ';">' +
+      esc(title || 'Geen titel') +
+      '</span>' +
+      '</div>' +
+      '<div class="meta">' +
+      (linkUrl ? '<span>Link: <b>' + esc(linkUrl) + '</b></span>' : '<span>Geen link</span>') +
+      '</div>' +
+      '</div>' +
+      '<div class="actions" style="opacity:1; gap:6px;">' +
+      (isFirst ? '' : '<button class="act" data-action="up" title="Omhoog" aria-label="Omhoog">' + ICON.up + '</button>') +
+      (isLast ? '' : '<button class="act" data-action="down" title="Omlaag" aria-label="Omlaag">' + ICON.down + '</button>') +
+      '<button class="act" data-action="edit" title="Bewerken" aria-label="Bewerken">' + ICON.edit + '</button>' +
+      '<button class="act danger" data-action="delete" title="Verwijderen" aria-label="Verwijderen">' + ICON.trash + '</button>' +
+      '</div>';
+
+    // Override list-row's default layout (which uses .num) to be a flex row instead.
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '14px';
+
+    var upBtn = row.querySelector('[data-action="up"]');
+    var downBtn = row.querySelector('[data-action="down"]');
+    if (upBtn) upBtn.addEventListener('click', function () { void moveItem(index, -1); });
+    if (downBtn) downBtn.addEventListener('click', function () { void moveItem(index, 1); });
+    row.querySelector('[data-action="edit"]').addEventListener('click', function () {
       editItem(record);
     });
-    row.querySelector('[data-delete]').addEventListener('click', function () {
-      void deleteItem(record.key);
+    row.querySelector('[data-action="delete"]').addEventListener('click', function () {
+      openConfirm(
+        'Deze afbeelding verwijderen?',
+        function () { void deleteItem(record.key); },
+      );
     });
 
     el.itemsList.appendChild(row);
@@ -496,21 +591,22 @@ function resetItemForm() {
   el.itemTitle.value = '';
   el.itemLink.value = '';
   el.addItemBtn.textContent = 'Afbeelding toevoegen';
+  el.resetItemBtn.style.display = 'none';
   renderFilePreview();
 }
 
 function renderFilePreview() {
   var files = state.pendingFiles;
   if (!files.length) {
-    el.itemFilePreview.classList.add('hidden');
+    el.itemFilePreview.style.display = 'none';
     el.itemFilePreview.textContent = '';
     return;
   }
-  el.itemFilePreview.classList.remove('hidden');
+  el.itemFilePreview.style.display = '';
   if (files.length === 1) {
-    el.itemFilePreview.textContent = `Geselecteerd: ${files[0].name}`;
+    el.itemFilePreview.textContent = 'Geselecteerd: ' + files[0].name;
   } else {
-    el.itemFilePreview.textContent = `${files.length} bestanden geselecteerd`;
+    el.itemFilePreview.textContent = files.length + ' bestanden geselecteerd';
   }
 }
 
@@ -519,7 +615,6 @@ function setPendingFiles(fileList) {
     return f && f.type && f.type.startsWith('image/');
   });
   state.pendingFiles = files;
-  // Auto-fill title from filename when exactly one file is selected and title is empty
   if (files.length === 1 && !el.itemTitle.value.trim()) {
     el.itemTitle.value = filenameToTitle(files[0].name);
   }
@@ -533,6 +628,7 @@ function editItem(record) {
   el.itemTitle.value = record.value?.title || '';
   el.itemLink.value = record.value?.linkUrl || '';
   el.addItemBtn.textContent = 'Bijwerken';
+  el.resetItemBtn.style.display = '';
   el.itemFile.value = '';
   renderFilePreview();
 }
@@ -546,19 +642,18 @@ async function addOrUpdateItem() {
   var linkUrl = el.itemLink.value.trim();
   var isEditing = Boolean(state.editingItemKey);
 
-  // Edit mode: keep single-record behaviour
   if (isEditing) {
     var imageUrl = urlInput;
     if (files.length > 0) {
       try {
         imageUrl = await api.uploadFile(await prepareFileForUpload(files[0]));
       } catch (err) {
-        notify(err.message || 'Upload mislukt', true);
+        notify(err.message || 'Upload mislukt', 'error');
         return;
       }
     }
     if (!imageUrl) {
-      notify('Selecteer een bestand of vul een URL in', true);
+      notify('Selecteer een bestand of vul een URL in', 'error');
       return;
     }
     var existing = state.items.find(function (r) { return r.key === state.editingItemKey; });
@@ -575,14 +670,13 @@ async function addOrUpdateItem() {
       await loadItems();
       notify('Afbeelding bijgewerkt');
     } catch (err) {
-      notify(err.message || 'Opslaan mislukt', true);
+      notify(err.message || 'Opslaan mislukt', 'error');
     }
     return;
   }
 
-  // Add mode: support 0 files (URL only), 1 file, or N files
   if (files.length === 0 && !urlInput) {
-    notify('Sleep bestanden of vul een URL in', true);
+    notify('Sleep bestanden of vul een URL in', 'error');
     return;
   }
 
@@ -590,12 +684,11 @@ async function addOrUpdateItem() {
   var createdCount = 0;
   var failedCount = 0;
 
-  // URL-only path
   if (files.length === 0 && urlInput) {
     try {
       await api.upsertDataRecord(
         SCOPES.items,
-        `item_${Date.now()}`,
+        'item_' + Date.now(),
         {
           collectionSlug: state.selectedSlug,
           imageUrl: urlInput,
@@ -608,16 +701,15 @@ async function addOrUpdateItem() {
       await loadItems();
       notify('Afbeelding toegevoegd');
     } catch (err) {
-      notify(err.message || 'Opslaan mislukt', true);
+      notify(err.message || 'Opslaan mislukt', 'error');
     }
     return;
   }
 
-  // Multi-file upload loop
   el.addItemBtn.disabled = true;
   for (var i = 0; i < files.length; i++) {
     var file = files[i];
-    notify(`Uploaden ${i + 1}/${files.length}…`);
+    notify('Uploaden ' + (i + 1) + '/' + files.length + '…');
     try {
       var uploadedUrl = await api.uploadFile(await prepareFileForUpload(file));
       var itemTitle = files.length === 1 ? title : '';
@@ -625,7 +717,7 @@ async function addOrUpdateItem() {
       var itemLink = files.length === 1 ? linkUrl : '';
       await api.upsertDataRecord(
         SCOPES.items,
-        `item_${Date.now()}_${i}`,
+        'item_' + Date.now() + '_' + i,
         {
           collectionSlug: state.selectedSlug,
           imageUrl: uploadedUrl,
@@ -645,9 +737,9 @@ async function addOrUpdateItem() {
   await loadItems();
 
   if (failedCount === 0) {
-    notify(createdCount === 1 ? 'Afbeelding toegevoegd' : `${createdCount} afbeeldingen toegevoegd`);
+    notify(createdCount === 1 ? 'Afbeelding toegevoegd' : createdCount + ' afbeeldingen toegevoegd');
   } else {
-    notify(`${createdCount} toegevoegd, ${failedCount} mislukt`, true);
+    notify(createdCount + ' toegevoegd, ' + failedCount + ' mislukt', 'error');
   }
 }
 
@@ -658,7 +750,7 @@ async function deleteItem(key) {
     await loadItems();
     notify('Afbeelding verwijderd');
   } catch (err) {
-    notify(err.message || 'Verwijderen mislukt', true);
+    notify(err.message || 'Verwijderen mislukt', 'error');
   }
 }
 
@@ -669,7 +761,6 @@ async function moveItem(currentIndex, direction) {
   var current = state.items[currentIndex];
   var target = state.items[targetIndex];
 
-  // Swap sort orders
   var currentOrder = Number(current.value?.sortOrder ?? currentIndex);
   var targetOrder = Number(target.value?.sortOrder ?? targetIndex);
 
@@ -686,7 +777,7 @@ async function moveItem(currentIndex, direction) {
     ]);
     await loadItems();
   } catch (err) {
-    notify(err.message || 'Volgorde wijzigen mislukt', true);
+    notify(err.message || 'Volgorde wijzigen mislukt', 'error');
   }
 }
 
@@ -696,17 +787,22 @@ el.createColBtn.addEventListener('click', function () { void createCollection();
 el.backBtn.addEventListener('click', closeEditor);
 el.saveSettingsBtn.addEventListener('click', function () { void saveSettings(); });
 el.addItemBtn.addEventListener('click', function () { void addOrUpdateItem(); });
+el.resetItemBtn.addEventListener('click', resetItemForm);
 el.editLayout.addEventListener('change', updateLayoutFields);
-el.editShowTitle.addEventListener('change', updateLayoutFields);
 
-// Background color: keep picker + text input in sync
+bindSwitch(el.editLightboxSwitch);
+bindSwitch(el.editShowTitleSwitch, updateLayoutFields);
+
+// Background color: keep picker + text input + swatch in sync
 el.editBgColorPicker.addEventListener('input', function () {
   el.editBgColorText.value = el.editBgColorPicker.value;
+  el.editBgColorSwatch.style.background = el.editBgColorPicker.value;
 });
 el.editBgColorText.addEventListener('input', syncBgColorFromText);
 el.editBgColorClear.addEventListener('click', function () {
   el.editBgColorText.value = '';
   el.editBgColorPicker.value = '#000000';
+  el.editBgColorSwatch.style.background = 'transparent';
 });
 
 // Dropzone interactions
@@ -721,14 +817,16 @@ el.itemFile.addEventListener('change', function () {
   el.itemDropzone.addEventListener(evt, function (e) {
     e.preventDefault();
     e.stopPropagation();
-    el.itemDropzone.classList.add('border-white/60', 'bg-white/10');
+    el.itemDropzone.style.borderColor = 'var(--accent)';
+    el.itemDropzone.style.background = 'var(--accent-soft)';
   });
 });
 ['dragleave', 'drop'].forEach(function (evt) {
   el.itemDropzone.addEventListener(evt, function (e) {
     e.preventDefault();
     e.stopPropagation();
-    el.itemDropzone.classList.remove('border-white/60', 'bg-white/10');
+    el.itemDropzone.style.borderColor = '';
+    el.itemDropzone.style.background = '';
   });
 });
 el.itemDropzone.addEventListener('drop', function (e) {
@@ -747,15 +845,31 @@ el.newColSlug.addEventListener('input', function () {
   el.newColSlug.dataset.manual = el.newColSlug.value ? '1' : '';
 });
 
+// Confirmation modal
+el.confirmModalOk.addEventListener('click', function () {
+  var cb = state.pendingConfirm;
+  closeConfirm();
+  if (typeof cb === 'function') cb();
+});
+el.confirmModalCancel.addEventListener('click', closeConfirm);
+el.confirmModalClose.addEventListener('click', closeConfirm);
+el.confirmModal.addEventListener('click', function (e) {
+  if (e.target === el.confirmModal) closeConfirm();
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && el.confirmModal.style.display !== 'none') {
+    closeConfirm();
+  }
+});
+
 // ---- Init ----
 
 (async function init() {
   try {
-    applyButtonClasses();
     updateLayoutFields();
     await loadCollections();
   } catch (err) {
     console.error(err);
-    notify(err.message || 'Plugin admin laden mislukt', true);
+    notify(err.message || 'Plugin admin laden mislukt', 'error');
   }
 })();
