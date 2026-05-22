@@ -51,6 +51,18 @@ const LOCALES = {
     'label.tags': 'TAGS',
     'label.tags.hint': 'Filter de output met <code>tag="featured"</code> in de shortcode.',
     'placeholder.tags': 'komma-gescheiden, bijv. featured, 2025',
+    'label.mediaType': 'MEDIATYPE',
+    'label.mediaType.hint': 'Afbeelding: JPG/PNG/WEBP/SVG. Video: directe MP4-URL. Embed: YouTube of Vimeo.',
+    'label.poster': 'POSTER URL',
+    'label.poster.hint': 'Stilstaande preview-afbeelding voor de video.',
+    'label.url.image': 'OF EXTERNE URL',
+    'label.url.video': 'VIDEO URL',
+    'label.url.embed': 'EMBED URL (YOUTUBE / VIMEO)',
+    'placeholder.poster': 'https://... (optioneel)',
+    'option.mediaType.image': 'Afbeelding',
+    'option.mediaType.video': 'Video',
+    'option.mediaType.embed': 'Embed',
+    'msg.embedNeedsUrl': 'Vul een YouTube- of Vimeo-URL in',
     'label.linkUrl': 'LINK URL',
     'label.filter': 'FILTER',
     'option.layout.cards': 'Kaarten — titel + knop',
@@ -235,6 +247,18 @@ const LOCALES = {
     'label.tags': 'TAGS',
     'label.tags.hint': 'Filter the output with <code>tag="featured"</code> in the shortcode.',
     'placeholder.tags': 'comma-separated, e.g. featured, 2025',
+    'label.mediaType': 'MEDIA TYPE',
+    'label.mediaType.hint': 'Image: JPG/PNG/WEBP/SVG. Video: direct MP4 URL. Embed: YouTube or Vimeo.',
+    'label.poster': 'POSTER URL',
+    'label.poster.hint': 'Still preview frame shown before the video plays.',
+    'label.url.image': 'OR EXTERNAL URL',
+    'label.url.video': 'VIDEO URL',
+    'label.url.embed': 'EMBED URL (YOUTUBE / VIMEO)',
+    'placeholder.poster': 'https://... (optional)',
+    'option.mediaType.image': 'Image',
+    'option.mediaType.video': 'Video',
+    'option.mediaType.embed': 'Embed',
+    'msg.embedNeedsUrl': 'Enter a YouTube or Vimeo URL',
     'label.linkUrl': 'LINK URL',
     'label.filter': 'FILTER',
     'option.layout.cards': 'Cards — title + button',
@@ -480,6 +504,9 @@ const state = {
   // is /images/<filename>).
   libraryImages: [],
   librarySelected: new Set(),
+  // Current item-form media type: 'image' | 'video' | 'embed'. Drives the
+  // visibility of the poster input and the contextual URL label.
+  itemMediaType: 'image',
 };
 
 const el = {
@@ -553,6 +580,10 @@ const el = {
   itemDateGroup: document.getElementById('item-date-group'),
   itemTags: document.getElementById('item-tags'),
   itemTagsGroup: document.getElementById('item-tags-group'),
+  itemMediaType: document.getElementById('item-media-type'),
+  itemPoster: document.getElementById('item-poster'),
+  itemPosterGroup: document.getElementById('item-poster-group'),
+  itemUrlLabel: document.getElementById('item-url-label'),
   itemLink: document.getElementById('item-link'),
   itemLinkGroup: document.getElementById('item-link-group'),
   addItemBtn: document.getElementById('add-item-btn'),
@@ -1274,6 +1305,36 @@ async function handleDrop(draggedKey, targetKey, position) {
 
 // ---- Image preview modal ----
 
+// ---- Item media-type switcher ----
+
+function setItemMediaType(type) {
+  var t2 = (type === 'video' || type === 'embed') ? type : 'image';
+  state.itemMediaType = t2;
+  // Update segmented control's .on state + aria-pressed for keyboard users.
+  if (el.itemMediaType) {
+    el.itemMediaType.querySelectorAll('button[data-media-type]').forEach(function (btn) {
+      var active = btn.getAttribute('data-media-type') === t2;
+      btn.classList.toggle('on', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+  // Poster field is only meaningful for direct <video> playback.
+  if (el.itemPosterGroup) {
+    el.itemPosterGroup.style.display = t2 === 'video' ? '' : 'none';
+  }
+  // Swap the URL label so it reads correctly for the picked media type.
+  if (el.itemUrlLabel) {
+    el.itemUrlLabel.setAttribute('data-i18n', 'label.url.' + t2);
+    el.itemUrlLabel.textContent = t('label.url.' + t2);
+  }
+  if (el.itemFile) {
+    // For video/embed the drop-zone file input is no use — the user is
+    // pasting a URL. Disabling the dropzone is more honest than
+    // pretending it accepts videos (the upload pipeline is image-only).
+    el.itemFile.disabled = t2 !== 'image';
+  }
+}
+
 // ---- CMS library picker ----
 
 function updateLibrarySelectionCount() {
@@ -1401,6 +1462,8 @@ async function insertFromLibrary() {
           caption: '',
           date: '',
           tags: [],
+          mediaType: 'image',
+          videoPoster: '',
           linkUrl: '',
           sortOrder: baseSortOrder + i,
         },
@@ -1602,7 +1665,9 @@ function resetItemForm() {
   el.itemCaption.value = '';
   el.itemDate.value = '';
   el.itemTags.value = '';
+  if (el.itemPoster) el.itemPoster.value = '';
   el.itemLink.value = '';
+  setItemMediaType('image');
   el.addItemBtn.textContent = t('btn.addImage');
   el.resetItemBtn.style.display = 'none';
   renderFilePreview();
@@ -1646,6 +1711,8 @@ function editItem(record) {
   // Tags can be stored as array OR comma-string from legacy / hand-edited rows.
   var rawTags = record.value?.tags;
   el.itemTags.value = Array.isArray(rawTags) ? rawTags.join(', ') : (rawTags || '');
+  setItemMediaType(record.value?.mediaType || 'image');
+  if (el.itemPoster) el.itemPoster.value = record.value?.videoPoster || '';
   el.itemLink.value = record.value?.linkUrl || '';
   el.addItemBtn.textContent = t('btn.updateImage');
   el.resetItemBtn.style.display = '';
@@ -1668,8 +1735,18 @@ async function addOrUpdateItem() {
     .split(',')
     .map(function (s) { return s.trim(); })
     .filter(Boolean);
+  var mediaType = state.itemMediaType;
+  var videoPoster = el.itemPoster ? el.itemPoster.value.trim() : '';
   var linkUrl = el.itemLink.value.trim();
   var isEditing = Boolean(state.editingItemKey);
+
+  // Video / embed require a URL — the file dropzone is image-only. Skip
+  // the file path entirely for those types so the user sees the right
+  // failure mode if they forgot the URL.
+  if ((mediaType === 'video' || mediaType === 'embed') && !urlInput) {
+    notify(mediaType === 'embed' ? t('msg.embedNeedsUrl') : t('msg.requireFileOrUrl'), 'error');
+    return;
+  }
 
   if (isEditing) {
     var imageUrl = urlInput;
@@ -1696,6 +1773,8 @@ async function addOrUpdateItem() {
         caption: caption,
         date: date,
         tags: tags,
+        mediaType: mediaType,
+        videoPoster: videoPoster,
         linkUrl: linkUrl,
         sortOrder: sortOrder,
       });
@@ -1730,6 +1809,8 @@ async function addOrUpdateItem() {
           caption: caption,
           date: date,
           tags: tags,
+          mediaType: mediaType,
+          videoPoster: videoPoster,
           linkUrl: linkUrl,
           sortOrder: baseSortOrder,
         },
@@ -1772,6 +1853,10 @@ async function addOrUpdateItem() {
           caption: itemCaption,
           date: itemDate,
           tags: itemTags,
+          // Multi-file uploads are always image type — the dropzone only
+          // accepts image/* and the upload pipeline can't ingest video.
+          mediaType: 'image',
+          videoPoster: '',
           linkUrl: itemLink,
           sortOrder: baseSortOrder + i,
         },
@@ -2030,6 +2115,14 @@ bindSwitch(el.editShowTitleSwitch, updateLayoutFields);
 bindSwitch(el.editSliderAutoplaySwitch);
 bindSwitch(el.editSliderDotsSwitch);
 bindSwitch(el.editSliderArrowsSwitch);
+
+if (el.itemMediaType) {
+  el.itemMediaType.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-media-type]');
+    if (!btn) return;
+    setItemMediaType(btn.getAttribute('data-media-type'));
+  });
+}
 
 if (el.openLibraryBtn) {
   el.openLibraryBtn.addEventListener('click', function () { void openLibraryPicker(); });

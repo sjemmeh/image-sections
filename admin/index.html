@@ -255,9 +255,25 @@
           </div>
           <p id="item-file-preview" class="hint" style="display:none; margin-top:10px;"></p>
 
+          <div class="form-field full" style="margin-top:22px;">
+            <label data-i18n="label.mediaType">MEDIATYPE</label>
+            <div class="segmented" id="item-media-type" style="max-width:360px;">
+              <button type="button" data-media-type="image" class="on" data-i18n="option.mediaType.image">Afbeelding</button>
+              <button type="button" data-media-type="video" data-i18n="option.mediaType.video">Video</button>
+              <button type="button" data-media-type="embed" data-i18n="option.mediaType.embed">Embed</button>
+            </div>
+            <span class="hint" data-i18n="label.mediaType.hint">Afbeelding: JPG/PNG/WEBP/SVG. Video: directe MP4-URL. Embed: YouTube of Vimeo.</span>
+          </div>
+
+          <div class="form-field full" id="item-poster-group" style="display:none; margin-top:14px;">
+            <label data-i18n="label.poster">POSTER URL</label>
+            <input id="item-poster" type="text" placeholder="https://... (optioneel)" data-i18n-placeholder="placeholder.poster" />
+            <span class="hint" data-i18n="label.poster.hint">Stilstaande preview-afbeelding voor de video.</span>
+          </div>
+
           <div class="form-grid" style="margin-top:22px;">
             <div class="form-field">
-              <label data-i18n="label.url">OF EXTERNE URL</label>
+              <label data-i18n="label.url.image" id="item-url-label">OF EXTERNE URL</label>
               <input id="item-url" type="text" placeholder="https://..." data-i18n-placeholder="placeholder.url" />
             </div>
             <div class="form-field" id="item-title-group">

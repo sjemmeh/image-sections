@@ -95,6 +95,92 @@ function animateAttr(idx) {
 }
 
 /**
+ * Convert a YouTube or Vimeo watch URL into the corresponding embed URL.
+ * Returns '' for anything we don't recognise so the renderer can short-
+ * circuit to an HTML comment rather than embedding arbitrary iframes —
+ * this is the only place untrusted URLs hit an iframe `src`, so the
+ * whitelist matters.
+ */
+function coerceEmbedUrl(url) {
+  if (!url) return '';
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (_err) {
+    return '';
+  }
+  const host = parsed.hostname.toLowerCase();
+
+  // YouTube watch URL → /embed/<id>
+  if (/(^|\.)youtube\.com$/.test(host)) {
+    const id = parsed.searchParams.get('v');
+    if (id && /^[\w-]{6,20}$/.test(id)) return `https://www.youtube.com/embed/${id}`;
+    const m = parsed.pathname.match(/^\/embed\/([\w-]{6,20})/);
+    if (m) return `https://www.youtube.com/embed/${m[1]}`;
+  }
+  // Short-form youtu.be/<id>
+  if (host === 'youtu.be') {
+    const id = parsed.pathname.replace(/^\/+/, '').split('/')[0];
+    if (id && /^[\w-]{6,20}$/.test(id)) return `https://www.youtube.com/embed/${id}`;
+  }
+  // Vimeo numeric ID
+  if (/(^|\.)vimeo\.com$/.test(host)) {
+    const id = parsed.pathname.replace(/^\/+/, '').split('/')[0];
+    if (/^\d{5,12}$/.test(id)) return `https://player.vimeo.com/video/${id}`;
+  }
+  // Already a Vimeo player embed URL
+  if (host === 'player.vimeo.com' && /^\/video\/\d{5,12}/.test(parsed.pathname)) {
+    return parsed.toString();
+  }
+
+  return '';
+}
+
+/**
+ * Render the right <img>/<video>/<iframe> for an item based on its
+ * mediaType. Defaults to image so pre-PR-19 items keep rendering as
+ * before. opts.loading defaults to 'eager' for idx 0, 'lazy' otherwise.
+ */
+function buildMediaElement(item, idx, opts) {
+  const mediaType = String(item.value?.mediaType || 'image').toLowerCase();
+  const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl || '');
+  const altText = escapeHtml(resolveAlt(item));
+  const loading = (opts && opts.loading) || (idx === 0 ? 'eager' : 'lazy');
+
+  if (mediaType === 'video') {
+    if (!rawUrl) return '<!-- image-section: video item missing URL -->';
+    const posterRaw = normalizePluginMediaUrl(item.value?.videoPoster || '');
+    const posterAttr = posterRaw ? ` poster="${escapeHtml(posterRaw)}"` : '';
+    // preload="metadata" is the gentlest default — fetches enough to draw
+    // the first frame + duration without pulling the entire file.
+    return `<video src="${escapeHtml(rawUrl)}"${posterAttr} controls preload="metadata" playsinline></video>`;
+  }
+
+  if (mediaType === 'embed') {
+    const embedUrl = coerceEmbedUrl(rawUrl);
+    if (!embedUrl) return '<!-- image-section: invalid or unsupported embed URL -->';
+    // The allow= list mirrors what YouTube/Vimeo expect for their players.
+    // title= takes the alt text so screen readers announce something
+    // meaningful when they hit the iframe.
+    return `<iframe src="${escapeHtml(embedUrl)}" title="${altText}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen loading="lazy" frameborder="0"></iframe>`;
+  }
+
+  // Default — image
+  const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
+  return `<img src="${thumbUrl}" alt="${altText}" loading="${loading}" />`;
+}
+
+/**
+ * Whether a lightbox-enabled item should actually open a lightbox.
+ * Only still images participate — videos have their own controls and
+ * iframes are already interactive.
+ */
+function lightboxEligible(item) {
+  const mediaType = String(item.value?.mediaType || 'image').toLowerCase();
+  return mediaType === 'image';
+}
+
+/**
  * Resolve the alt attribute for an item. Prefer the explicit altText
  * field (set in the admin) over the title — alt and title serve
  * different a11y purposes, but pre-enrichment items only have title,
@@ -123,10 +209,8 @@ function formatItemDate(value) {
 
 function buildCardItem(item, lightbox, bgColor, buttonText, idx) {
   const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
-  const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
   const fullUrl = escapeHtml(buildFullUrl(rawUrl));
   const title = escapeHtml(item.value?.title || '');
-  const altText = escapeHtml(resolveAlt(item));
   const caption = escapeHtml(item.value?.caption || '');
   const linkUrl = item.value?.linkUrl ? escapeHtml(item.value.linkUrl) : '';
   const safeButtonText = escapeHtml(buttonText || 'Bekijk project');
@@ -137,8 +221,9 @@ function buildCardItem(item, lightbox, bgColor, buttonText, idx) {
   }
 
   const captionHtml = caption ? `<span class="is-card-caption">${caption}</span>` : '';
+  const mediaHtml = buildMediaElement(item, idx);
 
-  const lbAttr = lightbox ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
+  const lbAttr = (lightbox && lightboxEligible(item)) ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
   const cardClass = linkUrl ? 'is-card is-card--has-btn' : 'is-card';
   const styleAttr = bgColor ? ` style="background-color: ${bgColor}"` : '';
   const titleAttr = title ? ` data-is-title="${title}"` : '';
@@ -147,7 +232,7 @@ function buildCardItem(item, lightbox, bgColor, buttonText, idx) {
   return `
     <div class="${cardClass}"${lbAttr}${titleAttr}${captionAttr}${styleAttr}${animateAttr(idx)}>
       <div class="is-card-image">
-        <img src="${thumbUrl}" alt="${altText}" loading="lazy" />
+        ${mediaHtml}
       </div>
       <div class="is-card-footer">
         <div class="is-card-text">
@@ -173,24 +258,23 @@ function sanitizeCssColor(value) {
 
 function buildGridItem(item, lightbox, showTitle, bgColor, idx) {
   const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
-  const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
   const fullUrl = escapeHtml(buildFullUrl(rawUrl));
   const title = escapeHtml(item.value?.title || '');
-  const altText = escapeHtml(resolveAlt(item));
   const caption = escapeHtml(item.value?.caption || '');
 
   const captionHtml = showTitle && title
     ? `<span class="is-grid-caption">${title}</span>`
     : '';
+  const mediaHtml = buildMediaElement(item, idx);
 
-  const lbAttr = lightbox ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
+  const lbAttr = (lightbox && lightboxEligible(item)) ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
   const styleAttr = bgColor ? ` style="background-color: ${bgColor}"` : '';
   const titleAttr = title ? ` data-is-title="${title}"` : '';
   const captionAttr = caption ? ` data-is-caption="${caption}"` : '';
 
   return `
     <div class="is-grid-item"${lbAttr}${titleAttr}${captionAttr}${styleAttr}${animateAttr(idx)}>
-      <img src="${thumbUrl}" alt="${altText}" loading="lazy" />
+      ${mediaHtml}
       ${captionHtml}
     </div>
   `;
@@ -224,10 +308,8 @@ function renderCards(collection, items) {
 
 function buildNewsItem(item, buttonText, lightbox, idx) {
   const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
-  const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
   const fullUrl = escapeHtml(buildFullUrl(rawUrl));
   const title = escapeHtml(item.value?.title || '');
-  const altText = escapeHtml(resolveAlt(item));
   const caption = escapeHtml(item.value?.caption || '');
   const date = formatItemDate(item.value?.date);
   const dateHtml = date ? `<time class="is-news-card-date" datetime="${escapeHtml(item.value?.date || '')}">${escapeHtml(date)}</time>` : '';
@@ -238,15 +320,16 @@ function buildNewsItem(item, buttonText, lightbox, idx) {
   const linkHtml = linkUrl
     ? `<a href="${linkUrl}" class="is-news-card-link">${safeButtonText} ›</a>`
     : '';
+  const mediaHtml = buildMediaElement(item, idx);
 
-  const lbAttr = lightbox ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
+  const lbAttr = (lightbox && lightboxEligible(item)) ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
   const titleAttr = title ? ` data-is-title="${title}"` : '';
   const captionAttr = caption ? ` data-is-caption="${caption}"` : '';
 
   return `
     <div class="is-news-card"${lbAttr}${titleAttr}${captionAttr}${animateAttr(idx)}>
       <div class="is-news-card-image">
-        <img src="${thumbUrl}" alt="${altText}" loading="lazy" />
+        ${mediaHtml}
       </div>
       <div class="is-news-card-body">
         ${dateHtml}
@@ -330,10 +413,8 @@ function sliderCaptionPos(value) {
 
 function buildSliderItem(item, lightbox, buttonText, idx, total) {
   const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
-  const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
   const fullUrl = escapeHtml(buildFullUrl(rawUrl));
   const title = escapeHtml(item.value?.title || '');
-  const altText = escapeHtml(resolveAlt(item));
   const caption = escapeHtml(item.value?.caption || '');
   const date = formatItemDate(item.value?.date);
   const linkUrl = item.value?.linkUrl ? escapeHtml(item.value.linkUrl) : '';
@@ -350,7 +431,11 @@ function buildSliderItem(item, lightbox, buttonText, idx, total) {
     ? `<div class="is-slide-content"><div class="is-slide-content-inner">${dateHtml}${titleHtml}${captionHtml}${buttonHtml}</div></div>`
     : '';
 
-  const lbAttr = lightbox ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
+  // Slider images load eager on the first slide (it's the LCP) and lazy
+  // afterwards. buildMediaElement already does this; let it pick.
+  const mediaHtml = buildMediaElement(item, idx);
+
+  const lbAttr = (lightbox && lightboxEligible(item)) ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
   const titleAttr = title ? ` data-is-title="${title}"` : '';
   const captionAttr = caption ? ` data-is-caption="${caption}"` : '';
 
@@ -358,7 +443,7 @@ function buildSliderItem(item, lightbox, buttonText, idx, total) {
   return `
     <div class="is-slide" role="group" aria-roledescription="slide" aria-label="${idx + 1} / ${total}" data-is-slide-index="${idx}"${lbAttr}${titleAttr}${captionAttr}>
       <div class="is-slide-image">
-        <img src="${thumbUrl}" alt="${altText}" loading="${idx === 0 ? 'eager' : 'lazy'}" />
+        ${mediaHtml}
       </div>
       ${contentHtml}
     </div>
