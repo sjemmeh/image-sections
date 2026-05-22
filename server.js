@@ -303,6 +303,116 @@ function renderGrid(collection, items) {
   `;
 }
 
+/**
+ * Whitelist the height value to a small set of CSS lengths so we don't
+ * inject arbitrary CSS via the style attribute. Anything else falls back
+ * to the default.
+ */
+function sanitizeSliderHeight(value) {
+  if (!value) return '60vh';
+  const v = String(value).trim();
+  // Accept N(vh|vw|px|rem|em|%) with up to 4 digits + 0-2 decimals.
+  if (/^\d{1,4}(\.\d{1,2})?(vh|vw|px|rem|em|%)$/i.test(v)) return v;
+  if (/^(auto|fit-content)$/i.test(v)) return v;
+  return '60vh';
+}
+
+function sliderTransition(value) {
+  const v = String(value || 'fade').toLowerCase();
+  return v === 'slide' ? 'slide' : 'fade';
+}
+
+function sliderCaptionPos(value) {
+  const v = String(value || 'bottom-left').toLowerCase();
+  const allowed = ['center', 'bottom-left', 'bottom-center', 'bottom-right', 'top-left', 'top-center', 'top-right'];
+  return allowed.indexOf(v) >= 0 ? v : 'bottom-left';
+}
+
+function buildSliderItem(item, lightbox, buttonText, idx, total) {
+  const rawUrl = normalizePluginMediaUrl(item.value?.imageUrl);
+  const thumbUrl = escapeHtml(buildThumbUrl(rawUrl));
+  const fullUrl = escapeHtml(buildFullUrl(rawUrl));
+  const title = escapeHtml(item.value?.title || '');
+  const altText = escapeHtml(resolveAlt(item));
+  const caption = escapeHtml(item.value?.caption || '');
+  const date = formatItemDate(item.value?.date);
+  const linkUrl = item.value?.linkUrl ? escapeHtml(item.value.linkUrl) : '';
+  const safeButtonText = escapeHtml(buttonText || 'Lees meer');
+
+  const dateHtml = date ? `<time class="is-slide-date" datetime="${escapeHtml(item.value?.date || '')}">${escapeHtml(date)}</time>` : '';
+  const titleHtml = title ? `<h2 class="is-slide-title">${title}</h2>` : '';
+  const captionHtml = caption ? `<p class="is-slide-caption">${caption}</p>` : '';
+  const buttonHtml = linkUrl
+    ? `<a href="${linkUrl}" class="is-slide-btn">${safeButtonText}</a>`
+    : '';
+
+  const contentHtml = (dateHtml || titleHtml || captionHtml || buttonHtml)
+    ? `<div class="is-slide-content"><div class="is-slide-content-inner">${dateHtml}${titleHtml}${captionHtml}${buttonHtml}</div></div>`
+    : '';
+
+  const lbAttr = lightbox ? ` data-is-lightbox data-is-full-src="${fullUrl}"` : '';
+  const titleAttr = title ? ` data-is-title="${title}"` : '';
+  const captionAttr = caption ? ` data-is-caption="${caption}"` : '';
+
+  // Slides need explicit indices for the public JS dot pagination + aria.
+  return `
+    <div class="is-slide" role="group" aria-roledescription="slide" aria-label="${idx + 1} / ${total}" data-is-slide-index="${idx}"${lbAttr}${titleAttr}${captionAttr}>
+      <div class="is-slide-image">
+        <img src="${thumbUrl}" alt="${altText}" loading="${idx === 0 ? 'eager' : 'lazy'}" />
+      </div>
+      ${contentHtml}
+    </div>
+  `;
+}
+
+function renderSlider(collection, items) {
+  const lightbox = collection.lightbox === true || collection.lightbox === 'true';
+  const buttonText = collection.buttonText || 'Lees meer';
+  const autoplay = collection.sliderAutoplay !== false && collection.sliderAutoplay !== 'false';
+  const interval = Math.max(2000, Math.min(20000, Number(collection.sliderInterval) || 5000));
+  const transition = sliderTransition(collection.sliderTransition);
+  const showDots = collection.sliderShowDots !== false && collection.sliderShowDots !== 'false';
+  const showArrows = collection.sliderShowArrows !== false && collection.sliderShowArrows !== 'false';
+  const height = sanitizeSliderHeight(collection.sliderHeight);
+  const captionPos = sliderCaptionPos(collection.sliderCaptionPos);
+  const bgColor = sanitizeCssColor(collection.backgroundColor);
+
+  const itemsHtml = items.map((item, idx) => buildSliderItem(item, lightbox, buttonText, idx, items.length)).join('');
+
+  const classes = [
+    'is-section',
+    'is-layout-slider',
+    `is-slider-${transition}`,
+    `is-slide-caption-${captionPos}`,
+    lightbox ? 'is-has-lightbox' : '',
+  ].filter(Boolean).join(' ');
+
+  const styleParts = [`--is-slider-height: ${height}`];
+  if (bgColor) styleParts.push(`background-color: ${bgColor}`);
+  const styleAttr = ` style="${styleParts.join('; ')}"`;
+
+  // aria-roledescription="carousel" + aria-live="polite" announces slide
+  // changes to screen readers. The track + dots get their own ARIA in JS
+  // once it initialises.
+  return `
+    <div class="${classes}"${styleAttr}
+         role="region"
+         aria-roledescription="carousel"
+         aria-label="${escapeHtml(collection.name || 'Image slider')}"
+         data-is-autoplay="${autoplay ? '1' : '0'}"
+         data-is-interval="${interval}">
+      <div class="is-slider-track" aria-live="polite">
+        ${itemsHtml}
+      </div>
+      ${showArrows ? `
+        <button type="button" class="is-slider-prev" aria-label="Vorige">&lsaquo;</button>
+        <button type="button" class="is-slider-next" aria-label="Volgende">&rsaquo;</button>
+      ` : ''}
+      ${showDots ? `<div class="is-slider-dots" role="tablist"></div>` : ''}
+    </div>
+  `;
+}
+
 module.exports = {
   registerHeadSnippet: async (_config, context) => {
     const pluginName = context?.pluginName || 'image-sections';
@@ -361,6 +471,10 @@ module.exports = {
 
           if (layout === 'news') {
             return renderNews(collection, items);
+          }
+
+          if (layout === 'slider') {
+            return renderSlider(collection, items);
           }
 
           return renderCards(collection, items);

@@ -39,6 +39,7 @@
                 <option value="cards" data-i18n="option.layout.cards">Kaarten &mdash; titel + knop</option>
                 <option value="grid" data-i18n="option.layout.grid">Galerij grid</option>
                 <option value="news" data-i18n="option.layout.news">Nieuws &mdash; horizontaal scrollend</option>
+                <option value="slider" data-i18n="option.layout.slider">Slider &mdash; full-width hero met autoplay</option>
               </select>
             </div>
           </div>
@@ -94,6 +95,7 @@
                 <option value="cards" data-i18n="option.layout.cards.short">Kaarten</option>
                 <option value="grid" data-i18n="option.layout.grid.short">Galerij grid</option>
                 <option value="news" data-i18n="option.layout.news.short">Nieuws</option>
+                <option value="slider" data-i18n="option.layout.slider.short">Slider</option>
               </select>
             </div>
             <div class="form-field">
@@ -154,6 +156,65 @@
                 <button class="btn ghost" id="edit-bg-color-clear" type="button" data-i18n="btn.transparent">Transparant</button>
               </div>
               <span class="hint" data-i18n="label.bgColor.hint">Laat leeg voor een transparante achtergrond.</span>
+            </div>
+
+            <!-- Slider-only settings (toggled by updateLayoutFields) -->
+            <div class="form-field" id="slider-autoplay-group" style="display:none;">
+              <label data-i18n="label.sliderAutoplay">AUTOPLAY</label>
+              <div class="toggle-row" style="padding-top:8px;">
+                <div>
+                  <div class="t" data-i18n="toggle.sliderAutoplay.title">Automatisch doorlopen</div>
+                  <div class="d" data-i18n="toggle.sliderAutoplay.desc">Uitgeschakeld bij prefers-reduced-motion</div>
+                </div>
+                <div class="switch" id="edit-slider-autoplay-switch" role="switch" tabindex="0" aria-checked="false"></div>
+              </div>
+            </div>
+            <div class="form-field" id="slider-interval-group" style="display:none;">
+              <label data-i18n="label.sliderInterval">INTERVAL (MS)</label>
+              <input id="edit-slider-interval" type="number" min="2000" max="20000" step="500" value="5000" />
+              <span class="hint" data-i18n="label.sliderInterval.hint">Tussen 2000 en 20000 ms.</span>
+            </div>
+            <div class="form-field" id="slider-transition-group" style="display:none;">
+              <label data-i18n="label.sliderTransition">OVERGANG</label>
+              <select id="edit-slider-transition">
+                <option value="fade" data-i18n="option.sliderTransition.fade">Fade</option>
+                <option value="slide" data-i18n="option.sliderTransition.slide">Slide</option>
+              </select>
+            </div>
+            <div class="form-field" id="slider-height-group" style="display:none;">
+              <label data-i18n="label.sliderHeight">HOOGTE</label>
+              <input id="edit-slider-height" type="text" placeholder="60vh" />
+              <span class="hint" data-i18n="label.sliderHeight.hint">CSS-lengte (60vh, 400px, 32rem, &hellip;).</span>
+            </div>
+            <div class="form-field" id="slider-caption-pos-group" style="display:none;">
+              <label data-i18n="label.sliderCaptionPos">POSITIE ONDERSCHRIFT</label>
+              <select id="edit-slider-caption-pos">
+                <option value="bottom-left" data-i18n="option.sliderCaptionPos.bottomLeft">Onder &mdash; links</option>
+                <option value="bottom-center" data-i18n="option.sliderCaptionPos.bottomCenter">Onder &mdash; midden</option>
+                <option value="bottom-right" data-i18n="option.sliderCaptionPos.bottomRight">Onder &mdash; rechts</option>
+                <option value="center" data-i18n="option.sliderCaptionPos.center">Midden</option>
+                <option value="top-left" data-i18n="option.sliderCaptionPos.topLeft">Boven &mdash; links</option>
+                <option value="top-center" data-i18n="option.sliderCaptionPos.topCenter">Boven &mdash; midden</option>
+                <option value="top-right" data-i18n="option.sliderCaptionPos.topRight">Boven &mdash; rechts</option>
+              </select>
+            </div>
+            <div class="form-field" id="slider-dots-group" style="display:none;">
+              <label data-i18n="label.sliderShowDots">PUNTEN</label>
+              <div class="toggle-row" style="padding-top:8px;">
+                <div>
+                  <div class="t" data-i18n="toggle.sliderShowDots.title">Punten tonen</div>
+                </div>
+                <div class="switch" id="edit-slider-dots-switch" role="switch" tabindex="0" aria-checked="false"></div>
+              </div>
+            </div>
+            <div class="form-field" id="slider-arrows-group" style="display:none;">
+              <label data-i18n="label.sliderShowArrows">PIJLEN</label>
+              <div class="toggle-row" style="padding-top:8px;">
+                <div>
+                  <div class="t" data-i18n="toggle.sliderShowArrows.title">Pijlen tonen</div>
+                </div>
+                <div class="switch" id="edit-slider-arrows-switch" role="switch" tabindex="0" aria-checked="false"></div>
+              </div>
             </div>
           </div>
           <div class="footer-row">
