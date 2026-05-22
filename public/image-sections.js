@@ -352,9 +352,33 @@
     });
   }
 
+  function initLqip() {
+    // Each rendered raster image sits on top of a low-res background
+    // placeholder set inline on its wrapper. Once the full-res variant
+    // loads we drop the placeholder so the browser doesn't keep both
+    // bitmaps around. Skip when no images present.
+    document.querySelectorAll('[data-is-lqip]').forEach(function (wrapper) {
+      var img = wrapper.querySelector('img');
+      if (!img) {
+        // Wrapper without a child img (e.g. video / iframe item) —
+        // clear the placeholder since there's no fade-target.
+        wrapper.style.backgroundImage = '';
+        return;
+      }
+      var clear = function () { wrapper.style.backgroundImage = ''; };
+      if (img.complete && img.naturalWidth > 0) {
+        clear();
+      } else {
+        img.addEventListener('load', clear, { once: true });
+        // Errors leave the LQIP visible — better than an empty void.
+      }
+    });
+  }
+
   function init() {
     initSliders();
     initNewsScrollers();
+    initLqip();
 
     var sections = document.querySelectorAll('.is-has-lightbox');
 
