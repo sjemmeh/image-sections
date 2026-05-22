@@ -14,6 +14,12 @@ export function createPluginAdminClient(pluginName) {
   }
 
   return {
+    async getConfig() {
+      const response = await fetch(`${base}`, { credentials: 'include' });
+      const payload = await parseResponse(response, 'Failed to load plugin config');
+      return payload?.config && typeof payload.config === 'object' ? payload.config : {};
+    },
+
     async listDataScope(scope) {
       const response = await fetch(`${base}/data/${encodeURIComponent(scope)}`, {
         credentials: 'include',

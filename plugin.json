@@ -1,6 +1,6 @@
 {
   "name": "image-sections",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "displayName": "Image Sections",
   "description": "Herbruikbare afbeeldingssecties voor projectkaarten en galerijen. Gebruik {{plugin:image-section collection=\"slug\"}} in pagina-inhoud.",
   "author": "De Haas Digital",
@@ -37,5 +37,30 @@
     "server": "server.js"
   },
   "assets": "public",
-  "configSchema": {}
+  "configSchema": {
+    "defaultLayout": {
+      "type": "string",
+      "label": "Standaard layout",
+      "description": "Layout voor nieuw aangemaakte collecties (cards / grid / news)",
+      "default": "cards"
+    },
+    "defaultColumns": {
+      "type": "number",
+      "label": "Standaard kolommen",
+      "description": "Aantal kolommen voor nieuwe cards- en grid-collecties (2, 3 of 4)",
+      "default": 3
+    },
+    "defaultButtonText": {
+      "type": "string",
+      "label": "Standaard knoptekst (cards)",
+      "description": "CTA-tekst voor nieuwe cards-collecties",
+      "default": "Bekijk project"
+    },
+    "lightboxEnabledByDefault": {
+      "type": "boolean",
+      "label": "Lightbox standaard aan",
+      "description": "Schakel lightbox automatisch in bij nieuwe collecties",
+      "default": false
+    }
+  }
 }
