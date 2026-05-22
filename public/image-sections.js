@@ -8,22 +8,47 @@
   let overlay = null;
   let currentItems = [];
   let currentIndex = 0;
+  let triggerElement = null;
+
+  const LABELS = {
+    en: { close: 'Close', prev: 'Previous', next: 'Next', dialogTitle: 'Image viewer' },
+    nl: { close: 'Sluiten', prev: 'Vorige', next: 'Volgende', dialogTitle: 'Afbeelding bekijken' },
+  };
+
+  function getLabels() {
+    const docLang = (document.documentElement.lang || 'en').toLowerCase().slice(0, 2);
+    return LABELS[docLang] || LABELS.en;
+  }
+
+  function focusableInOverlay() {
+    if (!overlay) return [];
+    return Array.from(
+      overlay.querySelectorAll('button:not([disabled]):not([style*="display: none"]):not([style*="display:none"])'),
+    ).filter(function (node) {
+      return node.offsetParent !== null;
+    });
+  }
 
   function createOverlay() {
     if (overlay) return overlay;
 
+    const labels = getLabels();
+
     overlay = document.createElement('div');
     overlay.className = 'is-lightbox-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'is-lightbox-title');
     overlay.style.display = 'none';
-    overlay.innerHTML = `
-      <button class="is-lightbox-close" aria-label="Sluiten">&times;</button>
-      <button class="is-lightbox-nav is-lightbox-prev" aria-label="Vorige">&lsaquo;</button>
-      <figure class="is-lightbox-figure">
-        <img src="" alt="" />
-        <figcaption class="is-lightbox-caption"></figcaption>
-      </figure>
-      <button class="is-lightbox-nav is-lightbox-next" aria-label="Volgende">&rsaquo;</button>
-    `;
+    overlay.innerHTML =
+      '<h2 id="is-lightbox-title" class="is-sr-only">' + labels.dialogTitle + '</h2>' +
+      '<button type="button" class="is-lightbox-close" aria-label="' + labels.close + '">&times;</button>' +
+      '<button type="button" class="is-lightbox-nav is-lightbox-prev" aria-label="' + labels.prev + '">&lsaquo;</button>' +
+      '<figure class="is-lightbox-figure">' +
+      '<img src="" alt="" />' +
+      '<figcaption class="is-lightbox-caption" aria-live="polite"></figcaption>' +
+      '</figure>' +
+      '<button type="button" class="is-lightbox-nav is-lightbox-next" aria-label="' + labels.next + '">&rsaquo;</button>';
 
     overlay.addEventListener('click', function (e) {
       if (e.target === overlay) close();
@@ -63,9 +88,10 @@
     nextBtn.style.display = currentItems.length > 1 ? '' : 'none';
   }
 
-  function open(items, startIndex) {
+  function open(items, startIndex, trigger) {
     currentItems = items;
     currentIndex = startIndex || 0;
+    triggerElement = trigger || document.activeElement;
 
     var el = createOverlay();
     showImage(currentIndex);
@@ -76,6 +102,10 @@
     el.classList.add('is-active');
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', onKeyDown);
+
+    // Move focus into the dialog so keyboard users land on the close button.
+    var closeBtn = overlay.querySelector('.is-lightbox-close');
+    if (closeBtn) closeBtn.focus();
   }
 
   function close() {
@@ -90,6 +120,12 @@
         overlay.style.display = 'none';
       }
     });
+
+    // Restore focus to whatever opened the lightbox.
+    if (triggerElement && typeof triggerElement.focus === 'function') {
+      try { triggerElement.focus(); } catch (_err) { /* element may be gone */ }
+    }
+    triggerElement = null;
   }
 
   function navigate(direction) {
@@ -99,26 +135,57 @@
     showImage(nextIndex);
   }
 
+  function trapFocus(e) {
+    if (e.key !== 'Tab') return;
+    var focusables = focusableInOverlay();
+    if (focusables.length === 0) {
+      e.preventDefault();
+      return;
+    }
+    var first = focusables[0];
+    var last = focusables[focusables.length - 1];
+    var active = document.activeElement;
+
+    if (e.shiftKey) {
+      if (active === first || !overlay.contains(active)) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (active === last || !overlay.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }
+
   function onKeyDown(e) {
-    if (e.key === 'Escape') close();
+    if (e.key === 'Escape') {
+      close();
+      return;
+    }
     if (e.key === 'ArrowLeft') navigate(-1);
     if (e.key === 'ArrowRight') navigate(1);
+    if (e.key === 'Tab') trapFocus(e);
   }
 
   function initNewsScrollers() {
+    var labels = getLabels();
     document.querySelectorAll('.is-layout-news').forEach(function (section) {
       var scroll = section.querySelector('.is-news-scroll');
       if (!scroll) return;
 
       var prevBtn = document.createElement('button');
+      prevBtn.type = 'button';
       prevBtn.className = 'is-news-prev';
-      prevBtn.setAttribute('aria-label', 'Vorige nieuwsberichten');
+      prevBtn.setAttribute('aria-label', labels.prev);
       prevBtn.innerHTML = '&lsaquo;';
       section.appendChild(prevBtn);
 
       var nextBtn = document.createElement('button');
+      nextBtn.type = 'button';
       nextBtn.className = 'is-news-next';
-      nextBtn.setAttribute('aria-label', 'Volgende nieuwsberichten');
+      nextBtn.setAttribute('aria-label', labels.next);
       nextBtn.innerHTML = '&rsaquo;';
       section.appendChild(nextBtn);
 
@@ -159,8 +226,13 @@
       var gridItems = section.querySelectorAll('[data-is-lightbox]');
 
       gridItems.forEach(function (gridItem, index) {
-        gridItem.addEventListener('click', function (e) {
-          // Ignore clicks that originated on an interactive element
+        // Make non-button triggers keyboard-activatable so the lightbox
+        // is reachable without a mouse.
+        if (!gridItem.hasAttribute('tabindex')) gridItem.setAttribute('tabindex', '0');
+        if (!gridItem.hasAttribute('role')) gridItem.setAttribute('role', 'button');
+
+        var openFromEvent = function (e) {
+          // Ignore clicks/keys that originated on an interactive element
           // (e.g. the card's CTA button/link) so only the image opens the lightbox.
           if (e.target.closest('a, button')) return;
 
@@ -173,7 +245,15 @@
               items.push({ src: src, alt: img.alt || '', title: title });
             }
           });
-          open(items, index);
+          open(items, index, gridItem);
+        };
+
+        gridItem.addEventListener('click', openFromEvent);
+        gridItem.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openFromEvent(e);
+          }
         });
       });
     });
