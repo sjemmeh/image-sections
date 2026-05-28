@@ -44,18 +44,31 @@ function normalizePluginMediaUrl(url) {
 }
 
 /**
+ * Strip the optional `<W>/<H>/` sharp-resize prefix from a `/images/...` URL
+ * and return just the filename. Accepts both legacy bare form
+ * (`/images/foo.webp`) and the sharded form the backend now emits
+ * (`/images/0/0/foo.webp`, `/images/800/0/foo.webp`, etc.) so URL builders
+ * can re-prepend whatever dimensions they need without doubling up the
+ * prefix into nonsense like `/images/800/0/0/0/foo.webp`.
+ */
+function cmsImageFilename(url) {
+  let rest = url.slice('/images/'.length);
+  const sharded = rest.match(/^\d+\/\d+\/(.+)$/);
+  return sharded ? sharded[1] : rest;
+}
+
+/**
  * Build a thumbnail URL for card/grid/news display.
  *
- * - Main CMS images  (/images/filename):  /images/800/0/filename  (path-based sharp)
- * - Plugin uploads   (/api/plugins/…):    append ?w=800            (query-param sharp)
- * - SVG / ICO:                            returned as-is
+ * - Main CMS images  (/images/[W/H/]filename):  /images/800/0/filename  (path-based sharp)
+ * - Plugin uploads   (/api/plugins/…):          append ?w=800            (query-param sharp)
+ * - SVG / ICO:                                  returned as-is
  */
 function buildThumbUrl(url) {
   if (!url) return url;
   if (/\.(svg|ico)(\?|$)/i.test(url)) return url;
   if (url.startsWith('/images/')) {
-    const filename = url.slice('/images/'.length);
-    return `/images/800/0/${filename}`;
+    return `/images/800/0/${cmsImageFilename(url)}`;
   }
   const sep = url.includes('?') ? '&' : '?';
   return `${url}${sep}w=800`;
@@ -64,14 +77,13 @@ function buildThumbUrl(url) {
 /**
  * Build a full-resolution URL for the lightbox.
  *
- * - Main CMS images  (/images/filename):  /images/0/0/filename    (no resize)
- * - Plugin uploads:                        returned as-is (original)
+ * - Main CMS images  (/images/[W/H/]filename):  /images/0/0/filename    (no resize)
+ * - Plugin uploads:                              returned as-is (original)
  */
 function buildFullUrl(url) {
   if (!url) return url;
   if (url.startsWith('/images/')) {
-    const filename = url.slice('/images/'.length);
-    return `/images/0/0/${filename}`;
+    return `/images/0/0/${cmsImageFilename(url)}`;
   }
   return url;
 }
@@ -151,7 +163,7 @@ function buildSrcsetAttrs(rawUrl) {
   const widths = [400, 800, 1600];
 
   if (rawUrl.startsWith('/images/')) {
-    const filename = rawUrl.slice('/images/'.length);
+    const filename = cmsImageFilename(rawUrl);
     const srcset = widths
       .map((w) => `/images/${w}/0/${filename} ${w}w`)
       .join(', ');
@@ -180,7 +192,7 @@ function buildLqipUrl(rawUrl) {
   if (!rawUrl) return '';
   if (/\.(svg|ico)(\?|$)/i.test(rawUrl)) return '';
   if (rawUrl.startsWith('/images/')) {
-    return `/images/24/0/${rawUrl.slice('/images/'.length)}`;
+    return `/images/24/0/${cmsImageFilename(rawUrl)}`;
   }
   const stripped = rawUrl.replace(/([?&])w=\d+(&|$)/g, function (_m, lead, trail) {
     return trail === '&' ? lead : '';
@@ -640,6 +652,7 @@ module.exports = {
   __test: {
     escapeHtml,
     normalizePluginMediaUrl,
+    cmsImageFilename,
     buildThumbUrl,
     buildFullUrl,
     sortByOrder,

@@ -7,6 +7,7 @@ const plugin = require('../server.js');
 const {
   escapeHtml,
   normalizePluginMediaUrl,
+  cmsImageFilename,
   buildThumbUrl,
   buildFullUrl,
   sortByOrder,
@@ -76,6 +77,22 @@ test('buildFullUrl routes main-CMS images to 0/0 (no resize)', () => {
 test('buildFullUrl returns plugin uploads as-is (already original)', () => {
   assert.equal(buildFullUrl('/api/plugins/x/uploads/a.webp'), '/api/plugins/x/uploads/a.webp');
   assert.equal(buildFullUrl(''), '');
+});
+
+test('cmsImageFilename strips an existing <W>/<H>/ prefix', () => {
+  assert.equal(cmsImageFilename('/images/hero.webp'), 'hero.webp');
+  assert.equal(cmsImageFilename('/images/0/0/hero.webp'), 'hero.webp');
+  assert.equal(cmsImageFilename('/images/800/0/hero.webp'), 'hero.webp');
+  // Path-like filenames with directories survive — only the dim prefix is stripped.
+  assert.equal(cmsImageFilename('/images/0/0/subdir/hero.webp'), 'subdir/hero.webp');
+});
+
+test('buildThumbUrl/buildFullUrl handle already-sharded input without doubling the prefix', () => {
+  // Regression: the backend now returns originalUrl as /images/0/0/<filename>,
+  // so the builders must strip that prefix before prepending their own.
+  assert.equal(buildThumbUrl('/images/0/0/hero.webp'), '/images/800/0/hero.webp');
+  assert.equal(buildFullUrl('/images/0/0/hero.webp'), '/images/0/0/hero.webp');
+  assert.equal(buildFullUrl('/images/800/0/hero.webp'), '/images/0/0/hero.webp');
 });
 
 test('sortByOrder sorts by sortOrder ascending, breaks ties alphabetically', () => {
