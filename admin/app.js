@@ -1875,6 +1875,19 @@ function setPendingFiles(fileList) {
   renderFilePreview();
 }
 
+// Switches the item form into "edit" mode for the given key (typically the
+// item just created via insert/upload). Looks the record up in the freshly
+// loaded items list so callers don't need to. No-op if the key isn't found
+// — falls back to a plain reset so the form doesn't lie about its state.
+function focusFormOnItem(key) {
+  var rec = state.items.find(function (r) { return r.key === key; });
+  if (rec) {
+    editItem(rec);
+  } else {
+    resetItemForm();
+  }
+}
+
 function editItem(record) {
   state.editingItemKey = record.key;
   state.pendingFiles = [];
@@ -1973,10 +1986,11 @@ async function addOrUpdateItem() {
   var failedCount = 0;
 
   if (files.length === 0 && urlInput) {
+    var newUrlKey = 'item_' + Date.now();
     try {
       await api.upsertDataRecord(
         SCOPES.items,
-        'item_' + Date.now(),
+        newUrlKey,
         {
           collectionSlug: state.selectedSlug,
           imageUrl: urlInput,
@@ -1991,8 +2005,12 @@ async function addOrUpdateItem() {
           sortOrder: baseSortOrder,
         },
       );
-      resetItemForm();
+      // Keep the form open in edit mode for the new item so the user can
+      // continue refining title/alt/caption/etc without having to find it
+      // in the list and click Edit. Only single inserts behave this way —
+      // batch uploads still reset (no single item to focus).
       await loadItems();
+      focusFormOnItem(newUrlKey);
       notify(t('msg.imageAdded'));
     } catch (err) {
       notify(err.message || t('msg.saveFailed'), 'error');
@@ -2001,6 +2019,7 @@ async function addOrUpdateItem() {
   }
 
   el.addItemBtn.disabled = true;
+  var lastCreatedKey = null;
   for (var i = 0; i < files.length; i++) {
     var file = files[i];
     notify(t('msg.uploading', { i: i + 1, total: files.length }));
@@ -2018,9 +2037,10 @@ async function addOrUpdateItem() {
       // image-specific copy — useful for tagging "this whole drop is 2025".
       var itemTags = tags.slice();
       var itemLink = files.length === 1 ? linkUrl : '';
+      var itemKey = 'item_' + Date.now() + '_' + i;
       await api.upsertDataRecord(
         SCOPES.items,
-        'item_' + Date.now() + '_' + i,
+        itemKey,
         {
           collectionSlug: state.selectedSlug,
           imageUrl: uploadedUrl,
@@ -2038,14 +2058,22 @@ async function addOrUpdateItem() {
         },
       );
       createdCount += 1;
+      lastCreatedKey = itemKey;
     } catch (err) {
       failedCount += 1;
       console.error('Upload failed for', file.name, err);
     }
   }
   el.addItemBtn.disabled = false;
-  resetItemForm();
   await loadItems();
+  // Single-file upload: keep the form open in edit mode for the new item
+  // so the user can fill in metadata without hunting through the list.
+  // Multi-file: reset (no single item to focus on).
+  if (files.length === 1 && createdCount === 1 && lastCreatedKey) {
+    focusFormOnItem(lastCreatedKey);
+  } else {
+    resetItemForm();
+  }
 
   if (failedCount === 0) {
     notify(createdCount === 1 ? t('msg.imageAdded') : t('msg.imagesAdded', { n: createdCount }));
