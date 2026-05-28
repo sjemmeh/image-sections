@@ -247,10 +247,13 @@
         </div>
 
         <!-- Items -->
-        <div class="form-section">
+        <div class="form-section" id="items-section" style="position:relative;">
           <h2 data-i18n="section.images.title">Afbeeldingen</h2>
           <p class="desc" data-i18n="section.images.desc">Sleep meerdere bestanden tegelijk of voer een externe URL in.</p>
 
+          <input id="item-file" type="file" accept="image/*" multiple style="display:none;" />
+
+          <!-- Hero upload zone — shown when the collection has no items yet -->
           <div class="upload-zone" id="item-dropzone">
             <div class="ico">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -270,7 +273,22 @@
               <span class="pill-tag"><span class="pdot" style="background:#a78bfa"></span>WEBP</span>
               <span class="pill-tag"><span class="pdot" style="background:#fbbf24"></span>SVG</span>
             </div>
-            <input id="item-file" type="file" accept="image/*" multiple style="display:none;" />
+          </div>
+
+          <!-- Compact upload bar — shown when items already exist -->
+          <div class="upload-bar" id="item-dropbar" style="display:none;">
+            <div class="ico">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <div class="copy">
+              <div class="t" data-i18n="upload.bar.title">Sleep afbeeldingen hierheen, of klik om te uploaden</div>
+              <div class="d" data-i18n="upload.bar.desc">JPG &middot; PNG &middot; WEBP &middot; SVG</div>
+            </div>
+            <span class="browse" data-i18n="upload.bar.browse">Bestanden kiezen</span>
           </div>
 
           <div style="display:flex; align-items:center; gap:10px; margin-top:14px;">
@@ -279,62 +297,89 @@
           </div>
           <p id="item-file-preview" class="hint" style="display:none; margin-top:10px;"></p>
 
-          <div class="form-field full" style="margin-top:22px;">
-            <label data-i18n="label.mediaType">MEDIATYPE</label>
-            <div class="segmented" id="item-media-type" style="max-width:360px;">
-              <button type="button" data-media-type="image" class="on" data-i18n="option.mediaType.image">Afbeelding</button>
-              <button type="button" data-media-type="video" data-i18n="option.mediaType.video">Video</button>
-              <button type="button" data-media-type="embed" data-i18n="option.mediaType.embed">Embed</button>
-            </div>
-            <span class="hint" data-i18n="label.mediaType.hint">Afbeelding: JPG/PNG/WEBP/SVG. Video: directe MP4-URL. Embed: YouTube of Vimeo.</span>
-          </div>
+          <!-- Add by URL / Video / Embed — collapsed by default so the metadata
+               form doesn't dominate when the user just wants to drop files. -->
+          <details class="is-add-disclosure" id="item-add-disclosure">
+            <summary data-i18n="disclosure.addByUrl">Toevoegen via URL, video of embed</summary>
+            <div class="disclosure-body">
+              <div class="form-field full">
+                <label data-i18n="label.mediaType">MEDIATYPE</label>
+                <div class="segmented" id="item-media-type" style="max-width:360px;">
+                  <button type="button" data-media-type="image" class="on" data-i18n="option.mediaType.image">Afbeelding</button>
+                  <button type="button" data-media-type="video" data-i18n="option.mediaType.video">Video</button>
+                  <button type="button" data-media-type="embed" data-i18n="option.mediaType.embed">Embed</button>
+                </div>
+                <span class="hint" data-i18n="label.mediaType.hint">Afbeelding: JPG/PNG/WEBP/SVG. Video: directe MP4-URL. Embed: YouTube of Vimeo.</span>
+              </div>
 
-          <div class="form-field full" id="item-poster-group" style="display:none; margin-top:14px;">
-            <label data-i18n="label.poster">POSTER URL</label>
-            <input id="item-poster" type="text" placeholder="https://... (optioneel)" data-i18n-placeholder="placeholder.poster" />
-            <span class="hint" data-i18n="label.poster.hint">Stilstaande preview-afbeelding voor de video.</span>
-          </div>
+              <div class="form-field full" id="item-poster-group" style="display:none; margin-top:14px;">
+                <label data-i18n="label.poster">POSTER URL</label>
+                <input id="item-poster" type="text" placeholder="https://... (optioneel)" data-i18n-placeholder="placeholder.poster" />
+                <span class="hint" data-i18n="label.poster.hint">Stilstaande preview-afbeelding voor de video.</span>
+              </div>
 
-          <div class="form-grid" style="margin-top:22px;">
-            <div class="form-field">
-              <label data-i18n="label.url.image" id="item-url-label">OF EXTERNE URL</label>
-              <input id="item-url" type="text" placeholder="https://..." data-i18n-placeholder="placeholder.url" />
+              <div class="form-grid" style="margin-top:22px;">
+                <div class="form-field">
+                  <label data-i18n="label.url.image" id="item-url-label">OF EXTERNE URL</label>
+                  <input id="item-url" type="text" placeholder="https://..." data-i18n-placeholder="placeholder.url" />
+                </div>
+                <div class="form-field" id="item-title-group">
+                  <label data-i18n="label.title">TITEL</label>
+                  <input id="item-title" type="text" placeholder="Titel (optioneel bij meerdere bestanden)" data-i18n-placeholder="placeholder.title" />
+                </div>
+                <div class="form-field" id="item-alt-group">
+                  <label data-i18n="label.alt">ALT-TEKST</label>
+                  <input id="item-alt" type="text" placeholder="Beschrijving voor schermlezers" data-i18n-placeholder="placeholder.alt" />
+                  <span class="hint" data-i18n="label.alt.hint">Valt terug op de titel als leeg gelaten.</span>
+                </div>
+                <div class="form-field" id="item-date-group">
+                  <label data-i18n="label.date">DATUM</label>
+                  <input id="item-date" type="date" />
+                  <span class="hint" data-i18n="label.date.hint">Getoond in nieuws-layout.</span>
+                </div>
+                <div class="form-field full" id="item-caption-group">
+                  <label data-i18n="label.caption">ONDERSCHRIFT</label>
+                  <input id="item-caption" type="text" placeholder="Korte beschrijving onder de titel" data-i18n-placeholder="placeholder.caption" />
+                </div>
+                <div class="form-field full" id="item-link-group">
+                  <label data-i18n="label.linkUrl">LINK URL</label>
+                  <input id="item-link" type="text" placeholder="https://..." data-i18n-placeholder="placeholder.url" />
+                </div>
+                <div class="form-field full" id="item-tags-group">
+                  <label data-i18n="label.tags">TAGS</label>
+                  <input id="item-tags" type="text" placeholder="komma-gescheiden, bijv. featured, 2025" data-i18n-placeholder="placeholder.tags" />
+                  <span class="hint" data-i18n="label.tags.hint">Filter de output met <code>tag="featured"</code> in de shortcode.</span>
+                </div>
+              </div>
             </div>
-            <div class="form-field" id="item-title-group">
-              <label data-i18n="label.title">TITEL</label>
-              <input id="item-title" type="text" placeholder="Titel (optioneel bij meerdere bestanden)" data-i18n-placeholder="placeholder.title" />
-            </div>
-            <div class="form-field" id="item-alt-group">
-              <label data-i18n="label.alt">ALT-TEKST</label>
-              <input id="item-alt" type="text" placeholder="Beschrijving voor schermlezers" data-i18n-placeholder="placeholder.alt" />
-              <span class="hint" data-i18n="label.alt.hint">Valt terug op de titel als leeg gelaten.</span>
-            </div>
-            <div class="form-field" id="item-date-group">
-              <label data-i18n="label.date">DATUM</label>
-              <input id="item-date" type="date" />
-              <span class="hint" data-i18n="label.date.hint">Getoond in nieuws-layout.</span>
-            </div>
-            <div class="form-field full" id="item-caption-group">
-              <label data-i18n="label.caption">ONDERSCHRIFT</label>
-              <input id="item-caption" type="text" placeholder="Korte beschrijving onder de titel" data-i18n-placeholder="placeholder.caption" />
-            </div>
-            <div class="form-field full" id="item-link-group">
-              <label data-i18n="label.linkUrl">LINK URL</label>
-              <input id="item-link" type="text" placeholder="https://..." data-i18n-placeholder="placeholder.url" />
-            </div>
-            <div class="form-field full" id="item-tags-group">
-              <label data-i18n="label.tags">TAGS</label>
-              <input id="item-tags" type="text" placeholder="komma-gescheiden, bijv. featured, 2025" data-i18n-placeholder="placeholder.tags" />
-              <span class="hint" data-i18n="label.tags.hint">Filter de output met <code>tag="featured"</code> in de shortcode.</span>
-            </div>
-          </div>
+          </details>
 
           <div class="footer-row">
             <button class="btn ghost" id="reset-item-btn" type="button" style="display:none;" data-i18n="btn.cancel">Annuleren</button>
             <button class="btn primary" id="add-item-btn" type="button" data-i18n="btn.addImage">Afbeelding toevoegen</button>
           </div>
 
-          <div id="items-list" style="margin-top:22px; display:flex; flex-direction:column; gap:10px;"></div>
+          <!-- Items toolbar — count + manual refresh -->
+          <div class="is-items-toolbar" id="items-toolbar" style="display:none;">
+            <span class="count"><b id="items-count">0</b> <span data-i18n="items.toolbar.items">afbeeldingen</span></span>
+            <span class="hint" style="margin:0;" data-i18n="items.toolbar.hint">Sleep om te herordenen</span>
+            <div class="right">
+              <button class="ib" id="refresh-items-btn" type="button" data-i18n-title="btn.refreshItems" title="Lijst verversen">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                <span data-i18n="btn.refreshItems">Verversen</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="items-list" class="is-items-list"></div>
+
+          <!-- Page-wide drop overlay (within this section) -->
+          <div class="drop-overlay scoped" id="item-drop-overlay" style="display:none;">
+            <div class="target">
+              <h3 data-i18n="upload.dropOverlay.title" data-i18n-html="emphasised">Laat los om te <em>uploaden</em></h3>
+              <p data-i18n="upload.dropOverlay.sub">Bestanden worden direct toegevoegd aan deze collectie</p>
+            </div>
+          </div>
         </div>
 
         <!-- Recently deleted -->
@@ -368,7 +413,7 @@
               <h3 style="font-size:22px;" data-i18n="msg.libraryEmpty.title">Geen afbeeldingen in de bibliotheek</h3>
               <p class="sub" data-i18n="msg.libraryEmpty.sub">Upload eerst afbeeldingen via Media in het CMS.</p>
             </div>
-            <div id="library-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:12px;"></div>
+            <div id="library-grid" class="is-library-grid"></div>
           </div>
           <div class="modal-foot">
             <span id="library-selection-count" style="font-family:var(--mono); font-size:12px; color:var(--text-3); margin-right:auto;"></span>
