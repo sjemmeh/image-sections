@@ -213,6 +213,16 @@ const LOCALES = {
     'time.days': '{n} dagen geleden',
     'time.over30': 'meer dan 30 dagen geleden',
     'placeholder.colTitle': 'Geen titel',
+    'upload.bar.title': 'Sleep afbeeldingen hierheen, of klik om te uploaden',
+    'upload.bar.desc': 'JPG · PNG · WEBP · SVG',
+    'upload.bar.browse': 'Bestanden kiezen',
+    'upload.dropOverlay.title': 'Laat los om te |uploaden',
+    'upload.dropOverlay.sub': 'Bestanden worden direct toegevoegd aan deze collectie',
+    'disclosure.addByUrl': 'Toevoegen via URL, video of embed',
+    'items.toolbar.items': 'afbeeldingen',
+    'items.toolbar.hint': 'Sleep om te herordenen',
+    'btn.refreshItems': 'Verversen',
+    'msg.refreshFailed': 'Vernieuwen mislukt',
   },
   en: {
     'eyebrow.plugin': 'Plugins · Image Sections',
@@ -419,6 +429,16 @@ const LOCALES = {
     'time.days': '{n} days ago',
     'time.over30': 'over 30 days ago',
     'placeholder.colTitle': 'No title',
+    'upload.bar.title': 'Drop images here, or click to upload',
+    'upload.bar.desc': 'JPG · PNG · WEBP · SVG',
+    'upload.bar.browse': 'Choose files',
+    'upload.dropOverlay.title': 'Drop to |upload',
+    'upload.dropOverlay.sub': 'Files will be added to this collection',
+    'disclosure.addByUrl': 'Add via URL, video or embed',
+    'items.toolbar.items': 'images',
+    'items.toolbar.hint': 'Drag to reorder',
+    'btn.refreshItems': 'Refresh',
+    'msg.refreshFailed': 'Refresh failed',
   },
 };
 
@@ -598,6 +618,12 @@ const el = {
 
   itemFile: document.getElementById('item-file'),
   itemDropzone: document.getElementById('item-dropzone'),
+  itemDropbar: document.getElementById('item-dropbar'),
+  itemDropOverlay: document.getElementById('item-drop-overlay'),
+  itemsSection: document.getElementById('items-section'),
+  itemsToolbar: document.getElementById('items-toolbar'),
+  itemsCount: document.getElementById('items-count'),
+  refreshItemsBtn: document.getElementById('refresh-items-btn'),
   itemFilePreview: document.getElementById('item-file-preview'),
   itemUrl: document.getElementById('item-url'),
   itemTitle: document.getElementById('item-title'),
@@ -664,6 +690,14 @@ const ICON = {
     '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>',
   close:
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+  refresh:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+  link:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+  video:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+  check:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>',
 };
 
 function shortcodeFor(slug) {
@@ -1295,7 +1329,7 @@ async function loadItems() {
 
 function clearDropIndicators() {
   el.itemsList.querySelectorAll('[data-is-row]').forEach(function (row) {
-    row.style.boxShadow = '';
+    row.classList.remove('drop-before', 'drop-after');
   });
 }
 
@@ -1528,6 +1562,7 @@ function updateLibrarySelectionCount() {
 
 function renderLibraryGrid() {
   el.libraryGrid.innerHTML = '';
+  el.libraryGrid.className = 'is-library-grid';
   if (state.libraryImages.length === 0) {
     el.libraryEmpty.style.display = '';
     return;
@@ -1538,32 +1573,13 @@ function renderLibraryGrid() {
     var selected = state.librarySelected.has(img.filename);
     var tile = document.createElement('button');
     tile.type = 'button';
-    tile.className = 'library-tile';
+    tile.className = 'is-library-tile' + (selected ? ' selected' : '');
     tile.dataset.filename = img.filename;
-    tile.style.cssText = [
-      'position:relative',
-      'background:var(--surface)',
-      'border:2px solid ' + (selected ? 'var(--accent-2)' : 'var(--hairline)'),
-      'border-radius:10px',
-      'overflow:hidden',
-      'cursor:pointer',
-      'padding:0',
-      'transition:border-color 0.15s ease',
-      'aspect-ratio:1 / 1',
-    ].join(';');
     tile.setAttribute('aria-pressed', selected ? 'true' : 'false');
     tile.innerHTML =
-      '<img src="' + esc(img.thumbnailUrl) + '" alt="' + esc(img.filename) + '" ' +
-      'style="width:100%; height:100%; object-fit:cover; display:block;" loading="lazy" />' +
-      // Selected overlay: shaded background + corner check.
-      (selected
-        ? '<div style="position:absolute; inset:0; background:rgba(217,70,239,0.18);"></div>' +
-          '<div style="position:absolute; top:6px; right:6px; width:22px; height:22px; border-radius:50%; background:var(--accent-2); color:#fff; display:grid; place-items:center; font-size:12px; font-weight:700;">✓</div>'
-        : '') +
-      // Filename label.
-      '<div style="position:absolute; bottom:0; left:0; right:0; padding:6px 8px; background:linear-gradient(0deg, rgba(0,0,0,0.7), transparent); color:#fff; font-family:var(--mono); font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' +
-      esc(img.filename) +
-      '</div>';
+      '<img src="' + esc(img.thumbnailUrl) + '" alt="' + esc(img.filename) + '" loading="lazy" />' +
+      '<span class="check">' + ICON.check + '</span>' +
+      '<div class="name">' + esc(img.filename) + '</div>';
 
     tile.addEventListener('click', function () {
       if (state.librarySelected.has(img.filename)) {
@@ -1703,7 +1719,14 @@ function openImagePreview(imageUrl, title) {
 function renderItemsList() {
   el.itemsList.innerHTML = '';
 
-  if (state.items.length === 0) {
+  // Toggle upload modes — hero zone for empty collections, slim bar otherwise.
+  var hasItems = state.items.length > 0;
+  if (el.itemDropzone) el.itemDropzone.style.display = hasItems ? 'none' : '';
+  if (el.itemDropbar) el.itemDropbar.style.display = hasItems ? '' : 'none';
+  if (el.itemsToolbar) el.itemsToolbar.style.display = hasItems ? '' : 'none';
+  if (el.itemsCount) el.itemsCount.textContent = String(state.items.length);
+
+  if (!hasItems) {
     el.itemsList.innerHTML =
       '<div class="empty compact">' +
       '<h3 style="font-size:22px;">' + esc(t('empty.items.title')) + '</h3>' +
@@ -1716,59 +1739,63 @@ function renderItemsList() {
     var imageUrl = record.value?.imageUrl || '';
     var title = record.value?.title || '';
     var linkUrl = record.value?.linkUrl || '';
+    var altText = record.value?.altText || '';
+    var date = record.value?.date || '';
+    var mediaType = record.value?.mediaType || 'image';
     var previewUrl = normalizePluginMediaUrl(imageUrl);
     var isFirst = index === 0;
     var isLast = index === state.items.length - 1;
 
     var row = document.createElement('div');
-    row.className = 'list-row';
+    row.className = 'is-item-row';
     row.draggable = true;
     row.dataset.isRow = '1';
     row.dataset.itemKey = record.key;
-    row.style.background = 'var(--surface)';
-    row.style.border = '1px solid var(--hairline)';
-    row.style.borderRadius = '12px';
-    row.style.padding = '12px 14px';
-    row.style.display = 'flex';
-    row.style.alignItems = 'center';
-    row.style.gap = '14px';
-    row.style.transition = 'box-shadow 0.12s ease, opacity 0.12s ease';
 
-    var thumbInner = previewUrl
-      ? '<div style="width:100%; height:100%; background-image:url(' + esc(previewUrl) + '); background-size:cover; background-position:center;"></div>'
-      : '<div style="width:100%; height:100%; display:grid; place-items:center; color:var(--text-4);">' + ICON.image + '</div>';
+    var thumbBg = previewUrl
+      ? ' style="background-image:url(' + esc(previewUrl) + ');"'
+      : '';
+    var thumbClass = previewUrl ? 'thumb' : 'thumb empty';
+    var thumbInner = previewUrl ? '' : ICON.image;
+    var typeBadge = mediaType !== 'image'
+      ? '<span class="badge">' + esc(mediaType.toUpperCase()) + '</span>'
+      : '';
+
+    var metaParts = [];
+    if (linkUrl) {
+      metaParts.push('<span>' + ICON.link + '<b title="' + esc(linkUrl) + '">' + esc(linkUrl) + '</b></span>');
+    }
+    if (altText) {
+      metaParts.push('<span class="muted">alt &middot; ' + esc(altText) + '</span>');
+    }
+    if (date) {
+      var d = new Date(date);
+      var dateStr = isNaN(d.getTime()) ? date : d.toLocaleDateString('en-GB');
+      metaParts.push('<span class="muted">' + esc(dateStr) + '</span>');
+    }
+    if (!metaParts.length) {
+      metaParts.push('<span class="muted">' + esc(t('meta.noLink')) + '</span>');
+    }
 
     row.innerHTML =
-      '<button type="button" class="act" data-action="drag-handle" title="' + esc(t('aria.drag')) + '" aria-label="' + esc(t('aria.drag')) + '" style="cursor:grab; touch-action:none;">' + ICON.grip + '</button>' +
-      '<button type="button" data-action="preview" title="' + esc(t('aria.preview')) + '" aria-label="' + esc(t('aria.preview')) + '" style="width:64px; height:48px; flex-shrink:0; border-radius:8px; overflow:hidden; background:var(--bg-dim); border:1px solid var(--hairline); padding:0; cursor:' + (previewUrl ? 'zoom-in' : 'default') + ';">' +
-      thumbInner +
+      '<button type="button" class="handle" data-action="drag-handle" title="' + esc(t('aria.drag')) + '" aria-label="' + esc(t('aria.drag')) + '">' + ICON.grip + '</button>' +
+      '<button type="button" class="' + thumbClass + '"' + thumbBg + ' data-action="preview" title="' + esc(t('aria.preview')) + '" aria-label="' + esc(t('aria.preview')) + '">' +
+      thumbInner + typeBadge +
       '</button>' +
-      '<div class="body" style="min-width:0; flex:1;">' +
-      '<div class="title-line" style="margin-bottom:4px;">' +
-      '<span class="t" style="font-family:var(--sans); font-size:14px; color:var(--text); font-style:' + (title ? 'normal' : 'italic') + ';">' +
-      esc(title || t('placeholder.colTitle')) +
-      '</span>' +
+      '<div class="body">' +
+      '<span class="t' + (title ? '' : ' untitled') + '">' + esc(title || t('placeholder.colTitle')) + '</span>' +
+      '<div class="meta">' + metaParts.join('') + '</div>' +
       '</div>' +
-      '<div class="meta">' +
-      (linkUrl
-        ? '<span>' + esc(t('meta.link.label')) + ' <b>' + esc(linkUrl) + '</b></span>'
-        : '<span>' + esc(t('meta.noLink')) + '</span>') +
-      '</div>' +
-      '</div>' +
-      '<div class="actions" style="opacity:1; gap:6px;">' +
+      '<div class="actions">' +
       (isFirst ? '' : '<button class="act" data-action="up" title="' + esc(t('aria.up')) + '" aria-label="' + esc(t('aria.up')) + '">' + ICON.up + '</button>') +
       (isLast ? '' : '<button class="act" data-action="down" title="' + esc(t('aria.down')) + '" aria-label="' + esc(t('aria.down')) + '">' + ICON.down + '</button>') +
       '<button class="act" data-action="edit" title="' + esc(t('aria.edit')) + '" aria-label="' + esc(t('aria.edit')) + '">' + ICON.edit + '</button>' +
       '<button class="act danger" data-action="delete" title="' + esc(t('aria.delete')) + '" aria-label="' + esc(t('aria.delete')) + '">' + ICON.trash + '</button>' +
       '</div>';
 
-    // Drag handle visual state (grab/grabbing cursor only — the whole row is draggable).
-    var dragHandle = row.querySelector('[data-action="drag-handle"]');
-
     row.addEventListener('dragstart', function (e) {
       state.draggedItemKey = record.key;
-      row.style.opacity = '0.4';
-      if (dragHandle) dragHandle.style.cursor = 'grabbing';
+      row.classList.add('dragging');
       if (e.dataTransfer) {
         e.dataTransfer.effectAllowed = 'move';
         // Required for Firefox to actually start the drag.
@@ -1777,8 +1804,7 @@ function renderItemsList() {
     });
     row.addEventListener('dragend', function () {
       state.draggedItemKey = null;
-      row.style.opacity = '';
-      if (dragHandle) dragHandle.style.cursor = 'grab';
+      row.classList.remove('dragging');
       clearDropIndicators();
     });
     row.addEventListener('dragover', function (e) {
@@ -1786,13 +1812,11 @@ function renderItemsList() {
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
       var pos = dropPosition(row, e);
-      // Inset shadow indicates drop edge (top for "before", bottom for "after").
-      row.style.boxShadow = pos === 'before'
-        ? 'inset 0 2px 0 0 var(--accent-2)'
-        : 'inset 0 -2px 0 0 var(--accent-2)';
+      row.classList.toggle('drop-before', pos === 'before');
+      row.classList.toggle('drop-after', pos !== 'before');
     });
     row.addEventListener('dragleave', function () {
-      row.style.boxShadow = '';
+      row.classList.remove('drop-before', 'drop-after');
     });
     row.addEventListener('drop', function (e) {
       e.preventDefault();
@@ -1804,7 +1828,6 @@ function renderItemsList() {
       }
     });
 
-    // Preview button → modal
     var previewBtn = row.querySelector('[data-action="preview"]');
     if (previewBtn) {
       previewBtn.addEventListener('click', function (e) {
@@ -1907,6 +1930,14 @@ function editItem(record) {
   el.resetItemBtn.style.display = '';
   el.itemFile.value = '';
   renderFilePreview();
+
+  // Surface the metadata fields and scroll into view — the disclosure is
+  // collapsed by default so an editor would otherwise see no fields change.
+  var disclosure = document.getElementById('item-add-disclosure');
+  if (disclosure) {
+    disclosure.open = true;
+    disclosure.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 }
 
 async function addOrUpdateItem() {
@@ -2408,27 +2439,105 @@ el.itemDropzone.addEventListener('click', function (e) {
 el.itemFile.addEventListener('change', function () {
   setPendingFiles(el.itemFile.files);
 });
-['dragenter', 'dragover'].forEach(function (evt) {
-  el.itemDropzone.addEventListener(evt, function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    el.itemDropzone.style.borderColor = 'var(--accent)';
-    el.itemDropzone.style.background = 'var(--accent-soft)';
+// Direct dropzone & dropbar drag highlight (visual feedback when hovering them).
+[el.itemDropzone, el.itemDropbar].forEach(function (target) {
+  if (!target) return;
+  ['dragenter', 'dragover'].forEach(function (evt) {
+    target.addEventListener(evt, function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      target.classList.add('drag');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (evt) {
+    target.addEventListener(evt, function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      target.classList.remove('drag');
+    });
+  });
+  target.addEventListener('drop', function (e) {
+    var dt = e.dataTransfer;
+    if (!dt || !dt.files || !dt.files.length) return;
+    setPendingFiles(dt.files);
   });
 });
-['dragleave', 'drop'].forEach(function (evt) {
-  el.itemDropzone.addEventListener(evt, function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    el.itemDropzone.style.borderColor = '';
-    el.itemDropzone.style.background = '';
+
+// Compact upload bar — clicking it triggers the same hidden file input.
+if (el.itemDropbar) {
+  el.itemDropbar.addEventListener('click', function (e) {
+    if (e.target && e.target.tagName === 'INPUT') return;
+    el.itemFile.click();
   });
-});
-el.itemDropzone.addEventListener('drop', function (e) {
-  var dt = e.dataTransfer;
-  if (!dt || !dt.files || !dt.files.length) return;
-  setPendingFiles(dt.files);
-});
+}
+
+// Manual refresh button on the items toolbar.
+if (el.refreshItemsBtn) {
+  el.refreshItemsBtn.addEventListener('click', async function () {
+    if (!state.selectedSlug) return;
+    el.refreshItemsBtn.classList.add('spinning');
+    el.refreshItemsBtn.disabled = true;
+    try {
+      await loadItems();
+    } catch (err) {
+      notify(err.message || t('msg.refreshFailed'), 'error');
+    } finally {
+      // Keep the spin visible briefly so the user sees the feedback.
+      setTimeout(function () {
+        el.refreshItemsBtn.classList.remove('spinning');
+        el.refreshItemsBtn.disabled = false;
+      }, 320);
+    }
+  });
+}
+
+// Section-wide drag-drop overlay — drop a file anywhere inside the items
+// section and it gets queued, even outside the slim upload bar.
+(function setupSectionDrop() {
+  var section = el.itemsSection;
+  var overlay = el.itemDropOverlay;
+  if (!section || !overlay) return;
+
+  var depth = 0;
+  function hasFiles(e) {
+    if (!e.dataTransfer) return false;
+    var items = e.dataTransfer.items;
+    if (items && items.length) {
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file') return true;
+      }
+      return false;
+    }
+    var types = e.dataTransfer.types;
+    return !!(types && Array.prototype.indexOf.call(types, 'Files') !== -1);
+  }
+  function show() { overlay.style.display = ''; }
+  function hide() { depth = 0; overlay.style.display = 'none'; }
+
+  section.addEventListener('dragenter', function (e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    depth += 1;
+    show();
+  });
+  section.addEventListener('dragover', function (e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  });
+  section.addEventListener('dragleave', function (e) {
+    if (!hasFiles(e)) return;
+    depth = Math.max(0, depth - 1);
+    if (depth === 0) hide();
+  });
+  section.addEventListener('drop', function (e) {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    hide();
+    var dt = e.dataTransfer;
+    if (dt && dt.files && dt.files.length) setPendingFiles(dt.files);
+  });
+})();
 
 // Auto-fill slug from name
 el.newColName.addEventListener('input', function () {
