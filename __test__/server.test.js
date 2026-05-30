@@ -466,3 +466,24 @@ test('shortcode handler accepts comma-string tags on items', async () => {
   assert.match(out, />A</);
   assert.doesNotMatch(out, />B</);
 });
+
+// ─── registerHeadSnippet asset-gating ─────────────────────────────────────────
+
+test('registerHeadSnippet returns assets when pageHtml is not provided (preview/legacy host)', async () => {
+  const out = await plugin.registerHeadSnippet({}, { pluginName: 'image-sections' });
+  assert.match(out, /image-sections\.css/);
+  assert.match(out, /image-sections\.js/);
+});
+
+test('registerHeadSnippet returns assets when pageHtml contains the shortcode marker', async () => {
+  const pageHtml = '<html><body><div class="is-section is-layout-cards">...</div></body></html>';
+  const out = await plugin.registerHeadSnippet({}, { pluginName: 'image-sections', pageHtml });
+  assert.match(out, /image-sections\.css/);
+  assert.match(out, /image-sections\.js/);
+});
+
+test('registerHeadSnippet returns empty string when pageHtml is provided and has no shortcode markup', async () => {
+  const pageHtml = '<html><body><h1>About</h1><p>Plain page, no image sections.</p></body></html>';
+  const out = await plugin.registerHeadSnippet({}, { pluginName: 'image-sections', pageHtml });
+  assert.equal(out, '');
+});

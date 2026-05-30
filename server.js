@@ -632,8 +632,28 @@ function renderSlider(collection, items) {
   `;
 }
 
+/**
+ * Marker emitted by every shortcode render — used by registerHeadSnippet to
+ * detect whether the current page actually uses this plugin and skip injection
+ * when it doesn't. Kept in one place so the renderer and the gate stay in
+ * sync; if you rename the wrapper class, change it here too.
+ */
+const PAGE_MARKER = 'class="is-section';
+
 module.exports = {
   registerHeadSnippet: async (_config, context) => {
+    // Skip injection when the host gave us the rendered page HTML and it
+    // doesn't contain any image-section markup. Loading our CSS+JS on every
+    // page in the site was the prior behaviour — wasteful for sites that
+    // only use this plugin on one or two pages.
+    //
+    // If the host can't supply pageHtml (older host, or a preview render),
+    // we fall through and load the assets like before — safe default.
+    const pageHtml = context?.pageHtml;
+    if (typeof pageHtml === 'string' && !pageHtml.includes(PAGE_MARKER)) {
+      return '';
+    }
+
     const pluginName = context?.pluginName || 'image-sections';
     const assetBase = `/api/plugins/${encodeURIComponent(pluginName)}/assets`;
 
